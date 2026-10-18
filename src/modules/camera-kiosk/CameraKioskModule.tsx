@@ -99,6 +99,17 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
     return () => clearInterval(interval);
   }, [cameraActive]);
 
+  // Auto-punch when face is detected (no button required)
+  useEffect(() => {
+    if (!faceDetectedInFrame || scanning || !selectedTestEmployee || !cameraActive) return;
+    const timer = setTimeout(() => {
+      const mode = selectedTestEmployee.today_status === 'PRESENT' || selectedTestEmployee.today_status === 'LATE' ? 'CHECK_OUT' : 'CHECK_IN';
+      setPunchMode(mode);
+      handleTriggerBiometricScan(selectedTestEmployee);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [faceDetectedInFrame, selectedTestEmployee, cameraActive, scanning]);
+
   const startMobileCamera = async (mode: 'user' | 'environment') => {
     stopMobileCamera();
     setCameraStatusMsg('Connecting to Android Mobile Camera...');
@@ -479,31 +490,10 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                 </div>
               )}
 
-              <button
-                type="button"
-                disabled={scanning}
-                onClick={() => handleTriggerBiometricScan(selectedTestEmployee)}
-                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold shadow-lg transition cursor-pointer ${
-                  punchMode === 'CHECK_OUT' ||
-                  (punchMode === 'AUTO' &&
-                    selectedTestEmployee &&
-                    (selectedTestEmployee.today_status === 'PRESENT' ||
-                      selectedTestEmployee.today_status === 'LATE'))
-                    ? 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-sky-500/20'
-                    : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
-                }`}
-              >
-                <ScanFace className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
-                {scanning
-                  ? 'Verifying Face Biometrics...'
-                  : punchMode === 'CHECK_OUT' ||
-                    (punchMode === 'AUTO' &&
-                      selectedTestEmployee &&
-                      (selectedTestEmployee.today_status === 'PRESENT' ||
-                        selectedTestEmployee.today_status === 'LATE'))
-                  ? `Scan Face & Logout (${selectedTestEmployee?.emp_code || ''})`
-                  : `Scan Face & Login (${selectedTestEmployee?.emp_code || ''})`}
-              </button>
+              <div className="text-center text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+                <ScanFace className="w-3 h-3 inline mr-1" />
+                Auto-scan active — show your face to punch in or out
+              </div>
             </div>
           </div>
 
@@ -533,10 +523,13 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                       }`}
                     >
                       <CheckCircle2 className="w-3 h-3" />
-                      {lastPunchResult.punchType === 'CHECK_IN' ? 'CHECKED IN' : 'CHECKED OUT'}
+                      {lastPunchResult.punchType === 'CHECK_IN' ? 'Employee logged in' : 'Employee logged out'}
                     </span>
                     <div className="text-sm font-bold text-white truncate mt-0.5">
                       {lastPunchResult.employee.full_name} ({lastPunchResult.employee.emp_code})
+                    </div>
+                    <div className="text-[11px] font-mono text-emerald-300 mt-0.5">
+                      {currentTimeStr} • {lastPunchResult.punchType === 'CHECK_IN' ? 'Logged In' : 'Logged Out'}
                     </div>
                   </div>
                 </div>
