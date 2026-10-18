@@ -283,7 +283,7 @@ export const PayrollPreviewModule: React.FC = () => {
               ) : payrollResults.length === 0 ? (
                 <tr><td colSpan={11} className="py-4 text-center text-slate-500">No payroll data for selected month</td></tr>
               ) : (
-                payrollResults.map((r) => { return (
+                payrollResults.map((r) => (
                   <React.Fragment key={r.employee.emp_code}>
                     <tr className="border-t border-slate-800/40 hover:bg-slate-800/20 transition cursor-pointer" onClick={() => handleShowPayslip(r.employee.id)}>
                       <td className="px-2 py-1.5 text-white font-medium truncate">
@@ -356,7 +356,7 @@ export const PayrollPreviewModule: React.FC = () => {
                       </tr>
                     )
                   );
-                }) }
+                )) }
             </tbody>
           </table>
         </div>
@@ -364,4 +364,3 @@ export const PayrollPreviewModule: React.FC = () => {
     </div>
   );
 };
-}
