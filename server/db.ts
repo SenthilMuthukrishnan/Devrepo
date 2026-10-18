@@ -103,7 +103,110 @@ export function initDatabase() {
   const countRow = db.prepare('SELECT COUNT(*) as count FROM employees').get() as { count: number };
   if (countRow.count === 0) {
     seed500Employees();
+    seedMonthlyAttendanceHistory();
   }
+}
+
+// Generate deterministic attendance history (full previous month + current month up to yesterday)
+// so Module 5 payroll has a realistic monthly dataset to compute salary from.
+function seedMonthlyAttendanceHistory() {
+  const employees = db.prepare('SELECT id, emp_code, shift_id FROM employees ORDER BY id ASC').all() as Array<{ id: number; emp_code: string; shift_id: string }>;
+  if (employees.length === 0) return;
+
+  const deterministicRandom = (seed: number) => {
+    const x = Math.sin(seed * 12.9898) * 43758.5453;
+    return x - Math.floor(x);
+  };
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  const now = new Date();
+  const periods: Array<{ year: number; month: number; lastDay: number }> = [];
+
+  // Full previous month
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevLast = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate();
+  periods.push({ year: prev.getFullYear(), month: prev.getMonth(), lastDay: prevLast });
+
+  // Current month up to yesterday (today itself is seeded live by seed500Employees)
+  if (now.getDate() > 1) {
+    periods.push({ year: now.getFullYear(), month: now.getMonth(), lastDay: now.getDate() - 1 });
+  }
+
+  const insertAtt = db.prepare(`
+    INSERT INTO attendance_logs (
+      employee_id, emp_code, date, check_in_time, check_out_time,
+      status, late_minutes, work_hours, overtime_hours, confidence_score,
+      verify_mode, device_label, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertLeave = db.prepare(`
+    INSERT INTO leave_requests (employee_id, emp_code, leave_type, start_date, end_date, days, reason, status, created_at)
+    VALUES (?, ?, ?, ?, ?, 1, ?, 'APPROVED', ?)
+  `);
+
+  const historyTransaction = db.transaction(() => {
+    for (const period of periods) {
+      for (let day = 1; day <= period.lastDay; day++) {
+        const dateObj = new Date(period.year, period.month, day);
+        if (dateObj.getDay() === 0) continue; // Sunday weekly off
+        const dateStr = `${period.year}-${pad(period.month + 1)}-${pad(day)}`;
+
+        for (let i = 0; i < employees.length; i++) {
+          const emp = employees[i];
+          const empNum = emp.id;
+          const r1 = deterministicRandom(empNum * 31 + day * 7 + period.month);
+          const r2 = deterministicRandom(empNum * 17 + day * 13 + period.month);
+          const r3 = deterministicRandom(empNum * 53 + day * 3 + period.month);
+
+          const isMorning = emp.shift_id === 'MORNING';
+          const checkIn = `${isMorning ? '05:' : '08:'}${pad(50 + Math.floor(r2 * 9))}`;
+
+          if (r1 < 0.045) {
+            // Absent — no check-in recorded
+            insertAtt.run(emp.id, emp.emp_code, dateStr, null, null, 'NOT_CHECKED_IN', 0, 0, 0, 97.5, 'FACE_CAMERA', 'Gate-1 Android Tab Kiosk', `${dateStr}T23:59:00`);
+          } else if (r1 < 0.105) {
+            // Approved leave
+            const leaveTypes = ['CL', 'SL', 'PL'];
+            const lType = leaveTypes[empNum % leaveTypes.length];
+            const reasons = ['Personal family commitment', 'Medical checkup & rest', 'Planned vacation'];
+            insertLeave.run(emp.id, emp.emp_code, lType, dateStr, dateStr, reasons[empNum % reasons.length], `${dateStr}T08:00:00`);
+            insertAtt.run(emp.id, emp.emp_code, dateStr, null, null, 'ON_LEAVE', 0, 0, 0, 100, 'HR_PORTAL', 'HR Leave System', `${dateStr}T08:00:00`);
+          } else {
+            const isLate = r3 < 0.12;
+            const lateMins = isLate ? 8 + Math.floor(r2 * 35) : 0;
+            const checkedOut = r2 > 0.15;
+            const doesOt = empNum % 3 === 0 && r2 > 0.35;
+            const workHours = doesOt ? Number((8.5 + r3 * 3).toFixed(1)) : Number((7.8 + r3 * 0.6).toFixed(1));
+            const otHours = doesOt ? Number((workHours - 8).toFixed(1)) : 0;
+            const status = isLate ? 'LATE' : checkedOut ? 'CHECKED_OUT' : 'PRESENT';
+            const checkOut = checkedOut
+              ? (isMorning
+                  ? `${pad(16 + Math.floor(r3 * 3))}:${pad(10 + Math.floor(r2 * 49))}`
+                  : `${pad(17 + Math.floor(r3 * 4))}:${pad(10 + Math.floor(r2 * 49))}`)
+              : null;
+            insertAtt.run(
+              emp.id,
+              emp.emp_code,
+              dateStr,
+              checkIn,
+              checkOut,
+              status,
+              lateMins,
+              checkedOut ? workHours : 0,
+              checkedOut ? otHours : 0,
+              Number((96 + r2 * 3.4).toFixed(1)),
+              'FACE_CAMERA',
+              empNum % 2 === 0 ? 'Gate-1 Android Tab Kiosk' : 'Mobile App Biometric Cam',
+              `${dateStr}T${checkOut || '17:30'}:00`
+            );
+          }
+        }
+      }
+    }
+  });
+
+  historyTransaction();
 }
 
 const FIRST_NAMES = [

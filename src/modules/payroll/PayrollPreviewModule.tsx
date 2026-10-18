@@ -313,7 +313,8 @@ export const PayrollPreviewModule: React.FC = () => {
                       </td>
                     </tr>
                   );
-                }) }
+                })
+              )}
             </tbody>
           </table>
         </div>

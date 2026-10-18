@@ -13,8 +13,10 @@ reportsRouter.get('/daily', (req, res) => {
     const search = String(req.query.search || '').trim();
     const limit = Math.min(Number(req.query.limit || 500), 500);
 
-    const whereClauses: string[] = ["e.status = 'ACTIVE'", 'a.date = ?'];
-    const params: Array<string | number> = [dateFilter];
+    // NOTE: the attendance date constraint lives in the LEFT JOIN condition so
+    // employees with no punch today (not checked in) still appear in the muster roll.
+    const whereClauses: string[] = ["e.status = 'ACTIVE'"];
+    const params: Array<string | number> = [];
 
     if (search) {
       whereClauses.push('(e.full_name LIKE ? OR e.emp_code LIKE ?)');
@@ -41,14 +43,6 @@ reportsRouter.get('/daily', (req, res) => {
 
     const whereSql = whereClauses.join(' AND ');
 
-    // Get total matched count
-    const countQuery = `
-      SELECT COUNT(*) as total
-      FROM employees e
-      LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
-      WHERE ${whereSql.replace('a.date = ?', '').trim()}
-    `;
-    // Note: simpler approach — just get data and count in JS or use subquery
     const rows = db.prepare(`
       SELECT
         e.id,
@@ -69,7 +63,7 @@ reportsRouter.get('/daily', (req, res) => {
       WHERE ${whereSql}
       ORDER BY e.emp_code ASC
       LIMIT ?
-    `).all(...params, limit);
+    `).all(dateFilter, ...params, limit);
 
     res.json({
       date: dateFilter,
