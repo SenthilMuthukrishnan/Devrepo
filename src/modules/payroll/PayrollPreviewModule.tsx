@@ -283,9 +283,13 @@ export const PayrollPreviewModule: React.FC = () => {
               ) : payrollResults.length === 0 ? (
                 <tr><td colSpan={11} className="py-4 text-center text-slate-500">No payroll data for selected month</td></tr>
               ) : (
-                payrollResults.map((r) => (
-                  <React.Fragment key={r.employee.emp_code}>
-                    <tr className="border-t border-slate-800/40 hover:bg-slate-800/20 transition cursor-pointer" onClick={() => handleShowPayslip(r.employee.id)}>
+                payrollResults.map((r) => {
+                  return (
+                    <tr
+                      key={r.employee.emp_code}
+                      className="border-t border-slate-800/40 hover:bg-slate-800/20 transition cursor-pointer"
+                      onClick={() => handleShowPayslip(r.employee.id)}
+                    >
                       <td className="px-2 py-1.5 text-white font-medium truncate">
                         {r.employee.full_name} <span className="text-[9px] text-slate-500">({r.employee.emp_code})</span>
                       </td>
@@ -303,63 +307,61 @@ export const PayrollPreviewModule: React.FC = () => {
                           onClick={(e) => { e.stopPropagation(); handleShowPayslip(r.employee.id); }}
                           className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-[9px] font-bold border border-indigo-500/20 transition cursor-pointer"
                         >
-                          {expandedEmployee === r.employee.id ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                          <ChevronDown className="w-3 h-3" />
                           Payslip
                         </button>
                       </td>
                     </tr>
-                    {expandedEmployee === r.employee.id && payslipData && (
-                      <tr className="bg-slate-950/70 border-t border-slate-800/40">
-                        <td colSpan={11} className="px-3 py-3">
-                          <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-r from-[#0d221c] to-[#0d1322] p-4 space-y-2 shadow-lg">
-                            <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-extrabold text-emerald-300">Payslip — {payslipData.employee.full_name}</h4>
-                              <span className="text-[10px] font-mono text-emerald-400">{monthFilter || 'Current'}</span>
-                            </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
-                              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-                                <div className="text-[9px] uppercase text-slate-500 font-bold">Employee Details</div>
-                                <div className="text-white font-semibold">{payslipData.employee.emp_code} — {payslipData.employee.designation}</div>
-                                <div className="text-slate-400">{payslipData.employee.department}</div>
-                              </div>
-                              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-                                <div className="text-[9px] uppercase text-slate-500 font-bold">Earnings</div>
-                                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
-                                  <span>Basic:</span><span className="text-white font-mono">₹{payslipData.earnings.basic_pay?.toLocaleString('en-IN')}</span>
-                                  <span>HRA:</span><span className="text-white font-mono">₹{payslipData.earnings.hra?.toLocaleString('en-IN')}</span>
-                                  <span>Special:</span><span className="text-white font-mono">₹{payslipData.earnings.special_allowance?.toLocaleString('en-IN')}</span>
-                                  <span>Overtime:</span><span className="text-amber-400 font-mono">₹{payslipData.earnings.overtime_pay?.toLocaleString('en-IN')}</span>
-                                  <span>Gross:</span><span className="text-emerald-400 font-mono font-bold">₹{payslipData.earnings.gross_earnings?.toLocaleString('en-IN')}</span>
-                                </div>
-                              </div>
-                              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-                                <div className="text-[9px] uppercase text-slate-500 font-bold">Deductions</div>
-                                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
-                                  <span>PF (12%):</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions.pf?.toLocaleString('en-IN')}</span>
-                                  <span>ESI (1.75%):</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions.esi?.toLocaleString('en-IN')}</span>
-                                  <span>Prof Tax:</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions.professional_tax?.toLocaleString('en-IN')}</span>
-                                  <span>LOP:</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions.lop_deduction?.toLocaleString('en-IN')}</span>
-                                  <span>Total Deduct:</span><span className="text-rose-400 font-mono font-bold">-₹{payslipData.deductions.total_deductions?.toLocaleString('en-IN')}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="flex items-center justify-between pt-2 border-t border-emerald-500/10">
-                              <div className="text-[10px] text-slate-400">
-                                Present: {payslipData.attendance.present_days} days • Leave: {payslipData.attendance.leave_days} • OT: {payslipData.attendance.overtime_hours}h • Late: {payslipData.attendance.late_minutes} min
-                              </div>
-                              <div className="text-xl font-mono font-extrabold text-emerald-400">
-                                Net Pay: ₹{payslipData.net_salary?.toLocaleString('en-IN')}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                      </tr>
-                    )
                   );
-                )) }
+                }) }
             </tbody>
           </table>
         </div>
+
+        {/* Expanded Payslip Card */}
+        {expandedEmployee && payslipData && (
+          <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-r from-[#0d221c] to-[#0d1322] p-4 space-y-2 shadow-lg mt-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-extrabold text-emerald-300">Payslip — {payslipData.employee?.full_name}</h4>
+              <span className="text-[10px] font-mono text-emerald-400">{monthFilter || 'Current'}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
+              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
+                <div className="text-[9px] uppercase text-slate-500 font-bold">Employee Details</div>
+                <div className="text-white font-semibold">{payslipData.employee?.emp_code} — {payslipData.employee?.designation}</div>
+                <div className="text-slate-400">{payslipData.employee?.department}</div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
+                <div className="text-[9px] uppercase text-slate-500 font-bold">Earnings</div>
+                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
+                  <span>Basic:</span><span className="text-white font-mono">₹{payslipData.earnings?.basic_pay?.toLocaleString('en-IN')}</span>
+                  <span>HRA:</span><span className="text-white font-mono">₹{payslipData.earnings?.hra?.toLocaleString('en-IN')}</span>
+                  <span>Special:</span><span className="text-white font-mono">₹{payslipData.earnings?.special_allowance?.toLocaleString('en-IN')}</span>
+                  <span>Overtime:</span><span className="text-amber-400 font-mono">₹{payslipData.earnings?.overtime_pay?.toLocaleString('en-IN')}</span>
+                  <span>Gross:</span><span className="text-emerald-400 font-mono font-bold">₹{payslipData.earnings?.gross_earnings?.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
+                <div className="text-[9px] uppercase text-slate-500 font-bold">Deductions</div>
+                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
+                  <span>PF (12%):</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.pf?.toLocaleString('en-IN')}</span>
+                  <span>ESI (1.75%):</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.esi?.toLocaleString('en-IN')}</span>
+                  <span>Prof Tax:</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.professional_tax?.toLocaleString('en-IN')}</span>
+                  <span>LOP:</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.lop_deduction?.toLocaleString('en-IN')}</span>
+                  <span>Total Deduct:</span><span className="text-rose-400 font-mono font-bold">-₹{payslipData.deductions?.total_deductions?.toLocaleString('en-IN')}</span>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center justify-between pt-2 border-t border-emerald-500/10">
+              <div className="text-[10px] text-slate-400">
+                Present: {payslipData.attendance?.present_days} days • Leave: {payslipData.attendance?.leave_days} • OT: {payslipData.attendance?.overtime_hours}h • Late: {payslipData.attendance?.late_minutes} min
+              </div>
+              <div className="text-xl font-mono font-extrabold text-emerald-400">
+                Net Pay: ₹{payslipData.net_salary?.toLocaleString('en-IN')}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
