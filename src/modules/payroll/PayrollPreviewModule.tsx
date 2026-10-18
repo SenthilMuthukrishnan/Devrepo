@@ -364,3 +364,4 @@ export const PayrollPreviewModule: React.FC = () => {
     </div>
   );
 };
+}
