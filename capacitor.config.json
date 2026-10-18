@@ -1,0 +1,14 @@
+{
+  "appId": "com.company.biometricattendance",
+  "appName": "BioPulse 500 - Face Attendance",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "Camera": {
+      "presentationStyle": "fullscreen"
+    }
+  }
+}

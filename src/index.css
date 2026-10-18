@@ -1,0 +1,55 @@
+@import "tailwindcss";
+
+@keyframes scanline {
+  0% {
+    top: 10%;
+    opacity: 0.3;
+  }
+  50% {
+    top: 86%;
+    opacity: 1;
+  }
+  100% {
+    top: 10%;
+    opacity: 0.3;
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    transform: scale(0.96);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.03);
+    opacity: 0.35;
+  }
+  100% {
+    transform: scale(0.96);
+    opacity: 0.8;
+  }
+}
+
+.animate-scanline {
+  animation: scanline 2.6s ease-in-out infinite;
+}
+
+.animate-pulse-ring {
+  animation: pulseRing 2.2s ease-in-out infinite;
+}
+
+/* Custom sleek scrollbars for mobile & tablet panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.6);
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.6);
+}
