@@ -56,6 +56,51 @@ API: `POST /api/employees/bulk-delete` with `{ "ids": [1,2] }` or
 
 > This preview sandbox keeps `data/` across server restarts, so deletions now stick. On a host with a persistent disk/volume (Railway, Render, Fly.io) set `DB_PATH` to the mounted path.
 
+### Deleting directly in the database
+
+The database is a single SQLite file: **`data/biopulse.db`** (or `$DB_PATH`).
+Stop the server first if you want to be certain nothing is writing.
+
+**Option 1 — admin CLI (recommended)**
+
+```bash
+npm run db:list                                  # show every employee with ids
+node scripts/db-admin.mjs delete EMP0012 --yes   # one employee (+ their history)
+node scripts/db-admin.mjs delete @neha.shetty    # or by username
+node scripts/db-admin.mjs keep EMP0016 --yes     # delete everyone except Senthil
+node scripts/db-admin.mjs delete-all --yes       # wipe the roster
+node scripts/db-admin.mjs offboard EMP0012 --reason=Resigned --yes  # soft, keeps history
+node scripts/db-admin.mjs reset-demo --yes       # wipe everything; demo reseeds on restart
+```
+
+Without `--yes` every destructive command prints what it *would* delete and
+changes nothing. `keep` refuses to run if any name/code cannot be resolved, so a
+typo can never empty the roster. `DB_PATH=/path/to.db` targets another file.
+
+**Option 2 — SQL by hand**
+
+```sql
+-- always delete the child rows first (foreign keys / history)
+DELETE FROM attendance_logs WHERE employee_id = 12;
+DELETE FROM punch_events    WHERE employee_id = 12;
+DELETE FROM leave_requests  WHERE employee_id = 12;
+DELETE FROM employees       WHERE id = 12;
+```
+
+With the `sqlite3` CLI:
+```bash
+sqlite3 data/biopulse.db "DELETE FROM attendance_logs WHERE employee_id=12; \
+  DELETE FROM punch_events WHERE employee_id=12; \
+  DELETE FROM leave_requests WHERE employee_id=12; \
+  DELETE FROM employees WHERE id=12;"
+```
+
+Or use a GUI (DB Browser for SQLite / TablePlus) and open `data/biopulse.db`.
+
+> Deleting every row does **not** bring the demo roster back — seeding is
+> recorded in `app_meta.demo_seeded`. Clear that row (or run `reset-demo`) if you
+> actually want the 15 demo employees again.
+
 ### Which instance am I looking at?
 If the screen shows a different roster from the database, you are on a **different server** (an old preview tab, or a deployed instance). Verify with either:
 - `GET /api/version` → `{ buildId, startedAt, dbPath, cwd, staffCount }`

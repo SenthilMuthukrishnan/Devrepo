@@ -8,7 +8,10 @@
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
-    "server": "tsx server/index.ts"
+    "server": "tsx server/index.ts",
+    "db:list": "node scripts/db-admin.mjs list",
+    "db:delete": "node scripts/db-admin.mjs delete",
+    "db:keep": "node scripts/db-admin.mjs keep"
   },
   "dependencies": {
     "better-sqlite3": "^12.8.0",
