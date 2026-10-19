@@ -153,7 +153,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-extrabold text-white">Leave Applications</h3>
-            <span className="text-[10px] font-mono text-slate-400">{totalRequests} total</span>
+            <span className="text-xs font-mono text-slate-400">{totalRequests} total</span>
           </div>
           <button
             type="button"
@@ -177,7 +177,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
               key={f.id}
               type="button"
               onClick={() => setLeaveStatusFilter(f.id)}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold whitespace-nowrap transition cursor-pointer border ${
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer border ${
                 leaveStatusFilter === f.id
                   ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                   : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
@@ -189,7 +189,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
           <select
             value={leaveTypeFilter}
             onChange={(e) => setLeaveTypeFilter(e.target.value)}
-            className="px-2.5 py-1 rounded-lg text-[10px] font-bold bg-slate-900 text-slate-300 border border-slate-800 focus:outline-none cursor-pointer"
+            className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900 text-slate-300 border border-slate-800 focus:outline-none cursor-pointer"
           >
             <option value="ALL">All Types</option>
             <option value="CL">CL</option>
@@ -312,27 +312,27 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                       <span className="text-xs font-extrabold text-white truncate">
                         {req.full_name}
                       </span>
-                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                      <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
                         {req.emp_code}
                       </span>
-                      <span className="text-[10px] font-mono text-slate-400">{req.department}</span>
+                      <span className="text-xs font-mono text-slate-400">{req.department}</span>
                     </div>
                     <div className="text-[11px] text-slate-300 font-medium mt-0.5">
                       {leaveTypeLabels[req.leave_type] || req.leave_type}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusStyle(req.status)}`}>
+                    <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full border ${getStatusStyle(req.status)}`}>
                       {req.status}
                     </span>
-                    <div className="text-[10px] font-mono text-slate-400 mt-1">
+                    <div className="text-xs font-mono text-slate-400 mt-1">
                       {req.start_date} → {req.end_date} ({req.days}d)
                     </div>
                   </div>
                 </div>
 
                 <div className="text-[11px] text-slate-300 bg-slate-950/60 rounded-xl p-2.5 border border-slate-800/60">
-                  <span className="text-[10px] uppercase text-slate-500 font-bold">Reason:</span>
+                  <span className="text-xs uppercase text-slate-500 font-bold">Reason:</span>
                   <span className="ml-1.5">{req.reason}</span>
                 </div>
 
@@ -342,7 +342,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleStatusUpdate(req.id, 'APPROVED')}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition cursor-pointer"
                       >
                         <ShieldCheck className="w-3 h-3" />
                         Approve
@@ -350,14 +350,14 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => handleStatusUpdate(req.id, 'REJECTED')}
-                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold bg-rose-500 hover:bg-rose-400 text-slate-950 transition cursor-pointer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-500 hover:bg-rose-400 text-slate-950 transition cursor-pointer"
                       >
                         <ShieldX className="w-3 h-3" />
                         Reject
                       </button>
                     </>
                   )}
-                  <span className="text-[10px] text-slate-500 ml-auto">Created: {new Date(req.created_at).toLocaleDateString('en-IN')}</span>
+                  <span className="text-xs text-slate-500 ml-auto">Created: {new Date(req.created_at).toLocaleDateString('en-IN')}</span>
                 </div>
               </div>
             ))
@@ -372,14 +372,14 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
             <TrendingUp className="w-4 h-4 text-amber-400" />
             Overtime Ledger
           </h3>
-          <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+          <span className="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
             {otTotal} records
           </span>
         </div>
 
         <div className="rounded-xl overflow-hidden border border-slate-800/60">
           <table className="w-full text-[11px] text-left">
-            <thead className="bg-slate-900/80 text-[10px] uppercase text-slate-400 font-bold tracking-wider">
+            <thead className="bg-slate-900/80 text-xs uppercase text-slate-400 font-bold tracking-wider">
               <tr>
                 <th className="px-3 py-2">Employee</th>
                 <th className="px-3 py-2">Dept</th>
@@ -404,12 +404,12 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                   <tr key={record.id} className="border-t border-slate-800/40 hover:bg-slate-800/30 transition">
                     <td className="px-3 py-2 font-semibold text-white truncate max-w-[120px]">
                       {record.full_name}
-                      <span className="text-[9px] text-slate-500 ml-1 font-mono">{record.emp_code}</span>
+                      <span className="text-[11px] text-slate-500 ml-1 font-mono">{record.emp_code}</span>
                     </td>
                     <td className="px-3 py-2 text-slate-400 truncate">{record.department}</td>
                     <td className="px-3 py-2 text-sky-400 font-mono">{record.shift_id}</td>
                     <td className="px-3 py-2">
-                      <span className={`inline-block text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${
+                      <span className={`inline-block text-[11px] font-bold px-1.5 py-0.5 rounded-full border ${
                         record.status === 'CHECKED_OUT' ? 'bg-sky-500/15 text-sky-300 border-sky-500/30' :
                         record.status === 'PRESENT' || record.status === 'LATE' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
                         'bg-amber-500/15 text-amber-300 border-amber-500/30'

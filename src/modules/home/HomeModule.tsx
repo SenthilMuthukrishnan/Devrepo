@@ -37,7 +37,7 @@ export const HomeModule: React.FC<{ loading?: boolean; onRefresh?: () => void }>
     <div className="space-y-4 pb-4">
       {/* Clean Live Clock & Date */}
       <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-[#0e221f] via-[#0c1526] to-[#0a101d] p-5 shadow-xl text-center">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold uppercase tracking-widest mb-3">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold uppercase tracking-widest mb-3">
           <ScanFace className="w-3 h-3" />
           Module 1 • Clean Home Face Scan
         </div>

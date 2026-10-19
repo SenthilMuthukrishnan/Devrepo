@@ -254,7 +254,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
       <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-br from-[#0e1e2e] via-[#0d1322] to-[#0a101d] p-4 shadow-xl space-y-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-[10px] font-bold uppercase tracking-wider mb-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-sky-500/15 border border-sky-500/30 text-sky-300 text-xs font-bold uppercase tracking-wider mb-1">
               <Users className="w-3 h-3" />
               <span>Module 2 Active • Workforce & Biometrics</span>
             </div>
@@ -290,7 +290,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                 : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70'
             }`}
           >
-            <div className="text-[10px] text-slate-400 uppercase font-semibold">Total Staff</div>
+            <div className="text-xs text-slate-400 uppercase font-semibold">Total Staff</div>
             <div className="text-base font-mono font-bold text-white tabular-nums mt-0.5">
               {globalStats.totalActive}
             </div>
@@ -308,7 +308,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                 : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70'
             }`}
           >
-            <div className="text-[10px] text-emerald-400 uppercase font-semibold">
+            <div className="text-xs text-emerald-400 uppercase font-semibold">
               Face Enrolled
             </div>
             <div className="text-base font-mono font-bold text-emerald-400 tabular-nums mt-0.5">
@@ -328,7 +328,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                 : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800/70'
             }`}
           >
-            <div className="text-[10px] text-amber-400 uppercase font-semibold">Pending Face</div>
+            <div className="text-xs text-amber-400 uppercase font-semibold">Pending Face</div>
             <div className="text-base font-mono font-bold text-amber-400 tabular-nums mt-0.5">
               {globalStats.pendingCount}
             </div>
@@ -465,14 +465,14 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                         <span className="text-xs font-bold text-white truncate">
                           {emp.full_name}
                         </span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 text-emerald-400 border border-slate-800">
+                        <span className="text-xs font-mono px-1.5 py-0.5 rounded bg-slate-900 text-emerald-400 border border-slate-800">
                           {emp.emp_code}
                         </span>
                       </div>
                       <div className="text-[11px] text-slate-300 truncate mt-0.5">
                         {emp.designation}
                       </div>
-                      <div className="text-[10px] text-slate-400 truncate">
+                      <div className="text-xs text-slate-400 truncate">
                         {emp.department}
                       </div>
                     </div>
@@ -480,7 +480,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
 
                   {/* Face Biometric Badge */}
                   <span
-                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold shrink-0 ${
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${
                       emp.face_enrolled
                         ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                         : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
@@ -513,7 +513,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
 
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span
-                      className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${
+                      className={`px-2 py-0.5 rounded text-xs font-mono font-semibold ${
                         isInside
                           ? 'bg-emerald-500/15 text-emerald-300'
                           : isOut
@@ -539,7 +539,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                         setEnrollTarget(emp);
                         setEnrollModalOpen(true);
                       }}
-                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
                         emp.face_enrolled
                           ? 'bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700'
                           : 'bg-amber-500 hover:bg-amber-400 text-slate-950'
@@ -627,7 +627,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                   {editMode ? (
                     <form onSubmit={handleSaveEdit} className="space-y-2.5 text-xs">
                       <div>
-                        <label className="block text-[10px] uppercase text-slate-400 mb-1">
+                        <label className="block text-xs uppercase text-slate-400 mb-1">
                           Full Name
                         </label>
                         <input
@@ -643,7 +643,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 mb-1">
+                          <label className="block text-xs uppercase text-slate-400 mb-1">
                             Department
                           </label>
                           <select
@@ -662,7 +662,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                         </div>
 
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 mb-1">
+                          <label className="block text-xs uppercase text-slate-400 mb-1">
                             Shift
                           </label>
                           <select
@@ -683,7 +683,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 mb-1">
+                          <label className="block text-xs uppercase text-slate-400 mb-1">
                             Designation
                           </label>
                           <input
@@ -696,7 +696,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 mb-1">
+                          <label className="block text-xs uppercase text-slate-400 mb-1">
                             Phone Number
                           </label>
                           <input
@@ -712,7 +712,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
 
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 mb-1">
+                          <label className="block text-xs uppercase text-slate-400 mb-1">
                             Base Salary (₹/mo)
                           </label>
                           <input
@@ -728,7 +728,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] uppercase text-slate-400 mb-1">
+                          <label className="block text-xs uppercase text-slate-400 mb-1">
                             Overtime Rate (₹/hr)
                           </label>
                           <input
@@ -756,7 +756,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                   ) : (
                     <div className="grid grid-cols-2 gap-2 text-xs">
                       <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800">
-                        <div className="text-[10px] text-slate-400">Department & Role</div>
+                        <div className="text-xs text-slate-400">Department & Role</div>
                         <div className="font-semibold text-white truncate mt-0.5">
                           {detailProfile.employee.designation}
                         </div>
@@ -766,7 +766,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                       </div>
 
                       <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800">
-                        <div className="text-[10px] text-slate-400">Shift & Contact</div>
+                        <div className="text-xs text-slate-400">Shift & Contact</div>
                         <div className="font-mono font-bold text-sky-400 mt-0.5">
                           {detailProfile.employee.shift_id} SHIFT
                         </div>
@@ -776,14 +776,14 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                       </div>
 
                       <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800">
-                        <div className="text-[10px] text-slate-400">Monthly Base Salary</div>
+                        <div className="text-xs text-slate-400">Monthly Base Salary</div>
                         <div className="font-mono font-bold text-emerald-400 text-sm mt-0.5">
                           ₹{detailProfile.employee.base_salary.toLocaleString('en-IN')}
                         </div>
                       </div>
 
                       <div className="p-2.5 rounded-xl bg-slate-900/70 border border-slate-800">
-                        <div className="text-[10px] text-slate-400">Overtime Rate</div>
+                        <div className="text-xs text-slate-400">Overtime Rate</div>
                         <div className="font-mono font-bold text-amber-400 text-sm mt-0.5">
                           ₹{detailProfile.employee.hourly_ot_rate} / hr
                         </div>
@@ -799,7 +799,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                         <span>Biometric Face Signature</span>
                       </div>
                       <span
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded-full ${
+                        className={`text-xs font-mono px-2 py-0.5 rounded-full ${
                           detailProfile.employee.face_enrolled
                             ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
                             : 'bg-amber-500/15 text-amber-300 border border-amber-500/30'
@@ -812,7 +812,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                     </div>
 
                     {detailProfile.employee.face_enrolled ? (
-                      <div className="text-[10px] font-mono text-slate-400 bg-slate-900/80 p-2 rounded-xl border border-slate-800">
+                      <div className="text-xs font-mono text-slate-400 bg-slate-900/80 p-2 rounded-xl border border-slate-800">
                         Vector: [{detailProfile.employee.descriptorPreview.join(', ')}, ...]
                       </div>
                     ) : (
@@ -915,7 +915,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
               className="p-4 overflow-y-auto space-y-3 text-xs"
             >
               <div>
-                <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+                <label className="block text-xs uppercase tracking-wider text-slate-400 mb-1">
                   Employee Full Name *
                 </label>
                 <input
@@ -932,7 +932,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+                  <label className="block text-xs uppercase tracking-wider text-slate-400 mb-1">
                     Department
                   </label>
                   <select
@@ -951,7 +951,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+                  <label className="block text-xs uppercase tracking-wider text-slate-400 mb-1">
                     Assigned Shift
                   </label>
                   <select
@@ -972,7 +972,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+                  <label className="block text-xs uppercase tracking-wider text-slate-400 mb-1">
                     Designation / Role
                   </label>
                   <input
@@ -986,7 +986,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+                  <label className="block text-xs uppercase tracking-wider text-slate-400 mb-1">
                     Mobile Phone
                   </label>
                   <input
@@ -1002,7 +1002,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
 
               <div className="grid grid-cols-2 gap-2.5">
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+                  <label className="block text-xs uppercase tracking-wider text-slate-400 mb-1">
                     Monthly Base Salary (₹)
                   </label>
                   <input
@@ -1019,7 +1019,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] uppercase tracking-wider text-slate-400 mb-1">
+                  <label className="block text-xs uppercase tracking-wider text-slate-400 mb-1">
                     Hourly Overtime Rate (₹/hr)
                   </label>
                   <input

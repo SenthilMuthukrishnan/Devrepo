@@ -196,17 +196,17 @@ export const PayrollPreviewModule: React.FC = () => {
       {/* Payroll Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
         <div className="rounded-2xl border border-emerald-500/20 bg-[#0e221c] p-4 shadow-lg space-y-1">
-          <div className="text-[10px] uppercase text-emerald-400 font-bold tracking-widest">Total Staff Processed</div>
+          <div className="text-xs uppercase text-emerald-400 font-bold tracking-widest">Total Staff Processed</div>
           <div className="text-2xl font-mono font-extrabold text-white">{totalEmployees}</div>
           <div className="text-xs text-slate-400">{monthFilter || 'Current Month'} payroll run</div>
         </div>
         <div className="rounded-2xl border border-amber-500/20 bg-[#231b0e] p-4 shadow-lg space-y-1">
-          <div className="text-[10px] uppercase text-amber-400 font-bold tracking-widest">Total Gross Payroll</div>
+          <div className="text-xs uppercase text-amber-400 font-bold tracking-widest">Total Gross Payroll</div>
           <div className="text-2xl font-mono font-extrabold text-white">₹{(totalPayrollAmount / 100000).toFixed(2)}L</div>
           <div className="text-xs text-slate-400">Before statutory deductions</div>
         </div>
         <div className="rounded-2xl border border-sky-500/20 bg-[#0e1e2e] p-4 shadow-lg space-y-1">
-          <div className="text-[10px] uppercase text-sky-400 font-bold tracking-widest">Total Net Payroll</div>
+          <div className="text-xs uppercase text-sky-400 font-bold tracking-widest">Total Net Payroll</div>
           <div className="text-2xl font-mono font-extrabold text-white">
             ₹{monthlySummary ? (monthlySummary.total_net_payroll / 100000).toFixed(2) : '0.00'}L
           </div>
@@ -220,8 +220,8 @@ export const PayrollPreviewModule: React.FC = () => {
           <TrendingUp className="w-4 h-4 text-amber-400" /> Department Payroll Summary
         </h3>
         <div className="rounded-xl border border-slate-800/60 overflow-hidden">
-          <table className="w-full text-[10px] text-left">
-            <thead className="bg-slate-900/80 text-[9px] uppercase text-slate-400 font-bold tracking-wider">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-900/80 text-[11px] uppercase text-slate-400 font-bold tracking-wider">
               <tr>
                 <th className="px-2 py-2">Department</th>
                 <th className="px-2 py-2">Staff</th>
@@ -256,13 +256,13 @@ export const PayrollPreviewModule: React.FC = () => {
             <Receipt className="w-4 h-4 text-emerald-400" />
             Monthly Payroll — All 500 Employees
           </h3>
-          <span className="text-[10px] font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+          <span className="text-xs font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
             {totalEmployees} staff
           </span>
         </div>
         <div className="rounded-xl overflow-hidden border border-slate-800/60">
-          <table className="w-full text-[10px] text-left">
-            <thead className="bg-slate-900/80 text-[9px] uppercase text-slate-400 font-bold tracking-wider">
+          <table className="w-full text-xs text-left">
+            <thead className="bg-slate-900/80 text-[11px] uppercase text-slate-400 font-bold tracking-wider">
               <tr>
                 <th className="px-2 py-2">Employee</th>
                 <th className="px-2 py-2">Basic</th>
@@ -291,7 +291,7 @@ export const PayrollPreviewModule: React.FC = () => {
                       onClick={() => handleShowPayslip(r.employee.id)}
                     >
                       <td className="px-2 py-1.5 text-white font-medium truncate">
-                        {r.employee.full_name} <span className="text-[9px] text-slate-500">({r.employee.emp_code})</span>
+                        {r.employee.full_name} <span className="text-[11px] text-slate-500">({r.employee.emp_code})</span>
                       </td>
                       <td className="px-2 py-1.5 font-mono text-slate-300">₹{r.earnings.basic_pay?.toLocaleString('en-IN')}</td>
                       <td className="px-2 py-1.5 font-mono text-slate-300">₹{r.earnings.hra?.toLocaleString('en-IN')}</td>
@@ -305,7 +305,7 @@ export const PayrollPreviewModule: React.FC = () => {
                       <td className="px-2 py-1.5">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleShowPayslip(r.employee.id); }}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-[9px] font-bold border border-indigo-500/20 transition cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-[11px] font-bold border border-indigo-500/20 transition cursor-pointer"
                         >
                           <ChevronDown className="w-3 h-3" />
                           Payslip
@@ -324,17 +324,17 @@ export const PayrollPreviewModule: React.FC = () => {
           <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-r from-[#0d221c] to-[#0d1322] p-4 space-y-2 shadow-lg mt-3">
             <div className="flex items-center justify-between">
               <h4 className="text-sm font-extrabold text-emerald-300">Payslip — {payslipData.employee?.full_name}</h4>
-              <span className="text-[10px] font-mono text-emerald-400">{monthFilter || 'Current'}</span>
+              <span className="text-xs font-mono text-emerald-400">{monthFilter || 'Current'}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
               <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-                <div className="text-[9px] uppercase text-slate-500 font-bold">Employee Details</div>
+                <div className="text-[11px] uppercase text-slate-500 font-bold">Employee Details</div>
                 <div className="text-white font-semibold">{payslipData.employee?.emp_code} — {payslipData.employee?.designation}</div>
                 <div className="text-slate-400">{payslipData.employee?.department}</div>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-                <div className="text-[9px] uppercase text-slate-500 font-bold">Earnings</div>
-                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
+                <div className="text-[11px] uppercase text-slate-500 font-bold">Earnings</div>
+                <div className="grid grid-cols-2 gap-1 text-xs text-slate-300">
                   <span>Basic:</span><span className="text-white font-mono">₹{payslipData.earnings?.basic_pay?.toLocaleString('en-IN')}</span>
                   <span>HRA:</span><span className="text-white font-mono">₹{payslipData.earnings?.hra?.toLocaleString('en-IN')}</span>
                   <span>Special:</span><span className="text-white font-mono">₹{payslipData.earnings?.special_allowance?.toLocaleString('en-IN')}</span>
@@ -343,8 +343,8 @@ export const PayrollPreviewModule: React.FC = () => {
                 </div>
               </div>
               <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-                <div className="text-[9px] uppercase text-slate-500 font-bold">Deductions</div>
-                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
+                <div className="text-[11px] uppercase text-slate-500 font-bold">Deductions</div>
+                <div className="grid grid-cols-2 gap-1 text-xs text-slate-300">
                   <span>PF (12%):</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.pf?.toLocaleString('en-IN')}</span>
                   <span>ESI (1.75%):</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.esi?.toLocaleString('en-IN')}</span>
                   <span>Prof Tax:</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.professional_tax?.toLocaleString('en-IN')}</span>
@@ -354,7 +354,7 @@ export const PayrollPreviewModule: React.FC = () => {
               </div>
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-emerald-500/10">
-              <div className="text-[10px] text-slate-400">
+              <div className="text-xs text-slate-400">
                 Present: {payslipData.attendance?.present_days} days • Leave: {payslipData.attendance?.leave_days} • OT: {payslipData.attendance?.overtime_hours}h • Late: {payslipData.attendance?.late_minutes} min
               </div>
               <div className="text-xl font-mono font-extrabold text-emerald-400">
