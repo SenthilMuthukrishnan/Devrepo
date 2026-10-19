@@ -29,6 +29,8 @@ Zero-cost, Android Mobile & Tablet-Responsive Biometric Face Recognition Attenda
 ## Architecture Note
 The frontend is a static Vite/React build (deployed on Vercel). The backend (**Express + SQLite via `better-sqlite3`**) runs as a **separate service** (Railway / Render / Fly.io) because Vercel serverless cannot run native SQLite binaries. The frontend calls the API via relative `/api/...` routes; locally, `vite.config.ts` proxies `/api` to the backend on port 3001.
 
+The Express service also serves the production build: when a `dist/` folder exists, `npm run build && npm run server` hosts the UI **and** the API on a single port (`http://localhost:3001`). API-only deployments without `dist/` behave exactly as before.
+
 ## Quick Start (Local Development)
 ```bash
 npm install
