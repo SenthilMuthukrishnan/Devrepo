@@ -79,6 +79,7 @@ export async function createEmployee(payload: {
   shift_id: string;
   phone: string;
   email?: string;
+  username?: string;
   base_salary: number;
   hourly_ot_rate: number;
   joining_date?: string;
@@ -101,6 +102,7 @@ export async function updateEmployee(
     shift_id: string;
     phone: string;
     email: string;
+    username: string;
     base_salary: number;
     hourly_ot_rate: number;
   }>

@@ -41,9 +41,14 @@ if (fs.existsSync(indexHtml)) {
   apiApp.use(express.static(distDir, { index: false, maxAge: '1h' }));
 
   // SPA fallback: any non-API GET returns index.html so the client app boots.
+  // index.html must never be cached, otherwise browsers keep loading an old
+  // bundle after a rebuild and miss newly shipped UI.
   apiApp.use((req, res, next) => {
     if (req.method !== 'GET' && req.method !== 'HEAD') return next();
     if (req.path.startsWith('/api/')) return next();
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.set('Pragma', 'no-cache');
+    res.set('Expires', '0');
     res.sendFile(indexHtml);
   });
 }

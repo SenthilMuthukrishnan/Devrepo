@@ -27,14 +27,27 @@ Zero-cost, Android Mobile & Tablet-Responsive Biometric Face Recognition Attenda
 - **Restore to Active Workforce** (`POST /api/employees/:id/restore`) undoes an accidental offboarding; the employee re-appears as active with face enrollment pending.
 
 ### How to delete an employee
-1. Open **Staff** (Module 2) and stay on the **Active Workforce** tab.
-2. Press the red **trash icon** on the employee's card (or open the card → *Employee Has Left the Company*).
-3. Choose the last working day and a reason, then confirm:
-   - **Confirm — Employee Has Left** — soft removal. The employee leaves the active roster, dashboards, reports, payroll and face matching and moves to the **Former Staff** tab; history is kept.
-   - Tick **Permanently delete this record** first to also erase their attendance, leave and punch history (`DELETE /api/employees/:id?permanent=true`). Irreversible.
-4. Former staff can be **Restored** or **Deleted** permanently from the Former Staff tab.
+Three equivalent entry points (all open the same dialog):
+- **Staff → Active Workforce** → the red **Remove** button on the employee's card.
+- Click the card → **Employee Has Left the Company** (soft removal).
+- Click the card → **Delete Employee Permanently** (deletes immediately after confirming).
+
+In the dialog:
+- **Confirm — Employee Has Left** — soft removal. The employee leaves the active roster, dashboards, reports, payroll and face matching and moves to the **Former Staff** tab; history is kept.
+- Tick **Permanently delete this record** (or use the profile's *Delete Employee Permanently* button) to also erase their attendance, leave and punch history (`DELETE /api/employees/:id?permanent=true`). Irreversible.
+
+Former staff can be **Restored** or **Deleted** permanently from the Former Staff tab.
+
+> If the new buttons are not visible, hard-refresh the page (Ctrl/Cmd+Shift+R). `index.html` is served with `no-cache`, so a normal reload is usually enough.
 
 > Note: the SQLite file (`biopulse500.db`) is created on first run and re-seeded with 15 employees whenever it is missing. In the ephemeral preview sandbox the file is recreated after an environment restart, so a removal can appear undone — the employee comes back as a fresh seed. On a host with a persistent disk/volume (Railway, Render, Fly.io) removals persist.
+
+## Employee Usernames
+Every employee has a unique login handle (e.g. `ayaan.rao`), shown as `@username` on their card and profile.
+- The **Add Staff** form has a required **Username** field with a one-click suggestion derived from the full name; letters, numbers, `.`, `-` and `_` are allowed.
+- Leaving it blank auto-generates a unique handle from the name (`ravi.shankar`, `ravi.shankar1`, …).
+- Duplicate usernames are rejected with `409` and a clear message.
+- Existing databases are migrated in place: a unique index is created and every employee without a handle is backfilled from their name.
 
 ## Light & Dark Mode
 - Theme toggle in the header and the desktop sidebar; the choice is saved to `localStorage` and pre-applied in `index.html` so there is no flash on reload. First visit follows the OS `prefers-color-scheme`.

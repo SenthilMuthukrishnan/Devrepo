@@ -114,10 +114,50 @@ export function initDatabase() {
   ensureColumn('employees', 'separation_date', 'TEXT');
   ensureColumn('employees', 'separation_reason', 'TEXT');
 
+  // Login handle for each employee (e.g. "ayaan.rao"). Unique when present.
+  ensureColumn('employees', 'username', 'TEXT');
+  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_username ON employees(username)');
+
+  backfillUsernames();
+
   const countRow = db.prepare('SELECT COUNT(*) as count FROM employees').get() as { count: number };
   if (countRow.count === 0) {
     seedEmployees();
     seedMonthlyAttendanceHistory();
+    // Freshly seeded rows also need a login handle.
+    backfillUsernames();
+  }
+}
+
+/** Give every employee without a username a unique handle derived from their name. */
+function backfillUsernames() {
+  const missing = db
+    .prepare("SELECT id, full_name FROM employees WHERE username IS NULL OR TRIM(username) = ''")
+    .all() as Array<{ id: number; full_name: string }>;
+
+  if (missing.length === 0) return;
+
+  const taken = new Set(
+    (db.prepare('SELECT username FROM employees WHERE username IS NOT NULL').all() as Array<{
+      username: string;
+    }>).map((r) => r.username.toLowerCase())
+  );
+
+  const update = db.prepare('UPDATE employees SET username = ? WHERE id = ?');
+  for (const emp of missing) {
+    const base =
+      String(emp.full_name)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]/g, '')
+        .trim()
+        .replace(/\s+/g, '.') || `user${emp.id}`;
+    let candidate = base;
+    let n = 1;
+    while (taken.has(candidate)) {
+      candidate = `${base}${n++}`;
+    }
+    taken.add(candidate);
+    update.run(candidate, emp.id);
   }
 }
 

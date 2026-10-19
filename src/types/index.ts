@@ -82,6 +82,8 @@ export interface EmployeeRecord {
   shift_id: string;
   phone: string;
   email: string;
+  /** Login handle, e.g. "ayaan.rao". */
+  username?: string | null;
   base_salary: number;
   hourly_ot_rate: number;
   avatar_color: string;

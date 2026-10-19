@@ -8,6 +8,42 @@ const AVATAR_COLORS = [
   '#f59e0b', '#14b8a6', '#3b82f6', '#f97316', '#06b6d4'
 ];
 
+function slugifyUsername(name: string): string {
+  return String(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim()
+    .replace(/\s+/g, '.');
+}
+
+/** Returns a username that is free, or null when the requested one is taken. */
+function resolveUsername(
+  requested: unknown,
+  fullName: string,
+  excludeEmployeeId?: number
+): { username: string; conflict: boolean } {
+  const clean = String(requested ?? '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
+  const base = clean || slugifyUsername(fullName) || 'user';
+
+  const taken = (candidate: string) => {
+    const row = db
+      .prepare('SELECT id FROM employees WHERE LOWER(username) = ? AND id != ?')
+      .get(candidate, excludeEmployeeId ?? -1) as { id: number } | undefined;
+    return Boolean(row);
+  };
+
+  if (clean && taken(clean)) {
+    return { username: clean, conflict: true };
+  }
+
+  let candidate = base;
+  let n = 1;
+  while (taken(candidate)) {
+    candidate = `${base}${n++}`;
+  }
+  return { username: candidate, conflict: false };
+}
+
 function cosineSimilarity(a: number[], b: number[]): number {
   if (!a || !b || a.length === 0 || b.length === 0) return 0;
   const len = Math.min(a.length, b.length);
@@ -83,13 +119,14 @@ employeesRouter.get('/', (req, res) => {
       }
     }
 
-    const whereSql = whereClauses.join(' AND ');
+    // 'ALL' filters produce no clauses at all — omit the WHERE keyword entirely.
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const countQuery = `
       SELECT COUNT(*) as total
       FROM employees e
       LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
-      WHERE ${whereSql}
+      ${whereSql}
     `;
     const totalRow = db.prepare(countQuery).get(...params) as { total: number };
 
@@ -126,6 +163,7 @@ employeesRouter.get('/', (req, res) => {
         e.face_snapshot,
         e.joining_date,
         e.status,
+        e.username,
         e.separation_date,
         e.separation_reason,
         COALESCE(a.status, 'NOT_CHECKED_IN') as today_status,
@@ -137,7 +175,7 @@ employeesRouter.get('/', (req, res) => {
         a.confidence_score
       FROM employees e
       LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
-      WHERE ${whereSql}
+      ${whereSql}
       ORDER BY e.id ASC
       LIMIT ? OFFSET ?
     `;
@@ -237,6 +275,7 @@ employeesRouter.post('/', (req, res) => {
       shift_id = 'GENERAL',
       phone = '+91 9840012345',
       email,
+      username,
       base_salary = 32000,
       hourly_ot_rate = 200,
       joining_date,
@@ -256,6 +295,11 @@ employeesRouter.post('/', (req, res) => {
         ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
         : String(full_name).slice(0, 2).toUpperCase();
 
+    const { username: finalUsername, conflict } = resolveUsername(username, full_name);
+    if (conflict) {
+      return res.status(409).json({ error: `Username "${finalUsername}" is already taken` });
+    }
+
     const avatarColor = AVATAR_COLORS[nextNum % AVATAR_COLORS.length];
     const cleanEmail =
       email ||
@@ -265,9 +309,9 @@ employeesRouter.post('/', (req, res) => {
     const insertRes = db.prepare(`
       INSERT INTO employees (
         emp_code, full_name, department, designation, shift_id,
-        phone, email, base_salary, hourly_ot_rate, avatar_color,
+        phone, email, username, base_salary, hourly_ot_rate, avatar_color,
         avatar_initials, face_enrolled, face_descriptor, joining_date, status
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 'ACTIVE')
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 'ACTIVE')
     `).run(
       empCode,
       String(full_name).trim(),
@@ -276,6 +320,7 @@ employeesRouter.post('/', (req, res) => {
       shift_id,
       phone,
       cleanEmail,
+      finalUsername,
       Number(base_salary),
       Number(hourly_ot_rate),
       avatarColor,
@@ -314,6 +359,7 @@ employeesRouter.put('/:id', (req, res) => {
       shift_id = existing.shift_id,
       phone = existing.phone,
       email = existing.email,
+      username = existing.username,
       base_salary = existing.base_salary,
       hourly_ot_rate = existing.hourly_ot_rate,
     } = req.body;
@@ -324,6 +370,13 @@ employeesRouter.put('/:id', (req, res) => {
         ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
         : String(full_name).slice(0, 2).toUpperCase();
 
+    const usernameResult = resolveUsername(username, full_name, employeeId);
+    if (usernameResult.conflict) {
+      return res.status(409).json({
+        error: `Username "${usernameResult.username}" is already taken`,
+      });
+    }
+
     db.prepare(`
       UPDATE employees
       SET full_name = ?,
@@ -332,6 +385,7 @@ employeesRouter.put('/:id', (req, res) => {
           shift_id = ?,
           phone = ?,
           email = ?,
+          username = ?,
           base_salary = ?,
           hourly_ot_rate = ?,
           avatar_initials = ?
@@ -343,6 +397,7 @@ employeesRouter.put('/:id', (req, res) => {
       shift_id,
       phone,
       email,
+      usernameResult.username,
       Number(base_salary),
       Number(hourly_ot_rate),
       initials,
