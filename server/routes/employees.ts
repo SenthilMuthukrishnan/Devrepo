@@ -695,7 +695,6 @@ employeesRouter.post('/match-face', (req, res) => {
       WHERE e.status = 'ACTIVE'
         AND e.face_enrolled = 1
         AND e.face_descriptor IS NOT NULL
-        AND e.descriptor_source = 'CAMERA'
     `).all(today) as Array<any>;
 
     if (candidates.length === 0) {
