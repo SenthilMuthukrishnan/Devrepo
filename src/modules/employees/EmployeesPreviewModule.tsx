@@ -63,9 +63,9 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
   const pageSize = 25;
 
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
-  const [totalMatched, setTotalMatched] = useState(500);
+  const [totalMatched, setTotalMatched] = useState(15);
   const [globalStats, setGlobalStats] = useState({
-    totalActive: 500,
+    totalActive: 15,
     enrolledCount: 488,
     pendingCount: 12,
   });
@@ -259,7 +259,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
               <span>Module 2 Active • Workforce & Biometrics</span>
             </div>
             <h2 className="text-base @md:text-lg font-bold text-white leading-snug">
-              500-Employee Directory & Face Registry
+              15-Employee Directory & Face Registry
             </h2>
             <p className="text-[11px] text-slate-300 mt-0.5">
               Manage staff profiles, shifts, overtime rates, and 3-angle mobile camera face enrollment.
@@ -348,7 +348,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
               setPage(0);
               loadData(e.target.value, department, shiftFilter, enrolledFilter, 0);
             }}
-            placeholder="Search EMP0001..EMP0500, Name, Role, or Phone..."
+            placeholder="Search EMP0001..EMP0015, Name, Role, or Phone..."
             className="w-full pl-9 pr-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
           />
         </div>
@@ -425,7 +425,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
       {/* Responsive Employee Cards Grid: 1 col on Mobile Phone, 2 cols on Tablet */}
       {loading ? (
         <div className="py-12 text-center text-xs text-slate-400">
-          Loading 500-employee biometric directory...
+          Loading 15-employee biometric directory...
         </div>
       ) : employees.length === 0 ? (
         <div className="py-10 text-center rounded-2xl border border-slate-800 bg-[#0d1322] p-6 text-xs text-slate-400">

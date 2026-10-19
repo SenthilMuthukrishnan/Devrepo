@@ -1,6 +1,6 @@
 {
   "appId": "com.company.biometricattendance",
-  "appName": "BioPulse 500 - Face Attendance",
+  "appName": "BioPulse 15 - Face Attendance",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "server": {

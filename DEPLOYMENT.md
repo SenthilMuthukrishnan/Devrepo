@@ -1,4 +1,4 @@
-# BioPulse 500 — Deployment Guide
+# BioPulse 15 — Deployment Guide
 
 ## Architecture
 - **Frontend**: static Vite/React build → deploy to **Vercel** (or any static host).
@@ -32,11 +32,11 @@ Add `vercel.json` (uncomment/template below) so `/api/*` is proxied to the backe
 ## 3. Local development
 ```bash
 npm install
-npm run server   # API on http://localhost:3001 (auto-seeds 500 employees + attendance history)
+npm run server   # API on http://localhost:3001 (auto-seeds 15 employees + attendance history)
 npm run dev      # Vite on http://localhost:5173, proxies /api -> :3001
 ```
 
 ## Database notes
-- SQLite file `biopulse500.db` is auto-created and seeded (500 employees, a full previous month + current-month attendance history) on first run.
+- SQLite file `biopulse500.db` is auto-created and seeded (15 employees, a full previous month + current-month attendance history) on first run.
 - `.gitignore` excludes `*.db` — the DB is never committed.
 - Back up the `.db` file regularly (or use Turso/libSQL if you want a managed free SQLite-compatible database).

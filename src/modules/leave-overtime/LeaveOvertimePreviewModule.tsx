@@ -144,7 +144,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
         </div>
         <h2 className="text-xl font-extrabold text-white">Leave Requests & OT Ledger</h2>
         <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-          Full leave applications (CL, SL, PL, LOP), approve/reject workflow, and overtime ledger linked to biometric attendance for all 500 employees.
+          Full leave applications (CL, SL, PL, LOP), approve/reject workflow, and overtime ledger linked to biometric attendance for all 15 employees.
         </p>
       </div>
 

@@ -83,7 +83,7 @@ function workingDaysBetween(from: string, to: string): number {
 
 // ---------- daily muster roll ----------
 
-// Daily attendance muster roll (up to 500 employees) with filters
+// Daily attendance muster roll with filters
 reportsRouter.get('/daily', (req, res) => {
   try {
     const dateFilter = String(req.query.date || getTodayDateString());

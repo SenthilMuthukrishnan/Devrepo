@@ -69,7 +69,7 @@ export const PayrollPreviewModule: React.FC = () => {
   const loadBatchPayroll = async () => {
     setLoadingPayroll(true);
     try {
-      const res = await fetchBatchPayroll({ month: monthFilter, limit: 500 });
+      const res = await fetchBatchPayroll({ month: monthFilter, limit: 50 });
       setPayrollResults(res.results);
       setTotalEmployees(res.total_employees);
       setTotalPayrollAmount(res.total_payroll_amount);
@@ -147,7 +147,7 @@ export const PayrollPreviewModule: React.FC = () => {
         </div>
         <h2 className="text-xl font-extrabold text-white">Biometric-Linked Payroll Engine</h2>
         <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
-          Monthly salary computation for all 500 employees linked to biometric attendance. Includes attendance-to-payroll sync, overtime pay, LOP deductions, PF/ESI/professional tax, and individual printable payslips.
+          Monthly salary computation for all 15 employees linked to biometric attendance. Includes attendance-to-payroll sync, overtime pay, LOP deductions, PF/ESI/professional tax, and individual printable payslips.
         </p>
       </div>
 
@@ -254,7 +254,7 @@ export const PayrollPreviewModule: React.FC = () => {
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
             <Receipt className="w-4 h-4 text-emerald-400" />
-            Monthly Payroll — All 500 Employees
+            Monthly Payroll — All 15 Employees
           </h3>
           <span className="text-xs font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
             {totalEmployees} staff

@@ -144,7 +144,7 @@ export const ReportsPreviewModule: React.FC = () => {
         shift: shiftFilter,
         status: statusFilter,
         search,
-        limit: 500,
+        limit: 50,
       });
       setDailyRecords(res.records);
       setDailyTotal(res.total);

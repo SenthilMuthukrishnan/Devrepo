@@ -23,5 +23,5 @@ apiApp.use('/api/reports', reportsRouter);
 apiApp.use('/api/payroll', payrollRouter);
 
 apiApp.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', scale: '500-employees', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', scale: '15-employees', timestamp: new Date().toISOString() });
 });

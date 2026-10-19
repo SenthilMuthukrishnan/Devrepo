@@ -242,7 +242,7 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
                     setSearch(e.target.value);
                     loadEmployees(e.target.value);
                   }}
-                  placeholder="Search EMP0001..EMP0500 or Name..."
+                  placeholder="Search EMP0001..EMP0015 or Name..."
                   className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-900 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>

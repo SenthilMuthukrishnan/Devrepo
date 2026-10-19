@@ -102,7 +102,7 @@ export function initDatabase() {
 
   const countRow = db.prepare('SELECT COUNT(*) as count FROM employees').get() as { count: number };
   if (countRow.count === 0) {
-    seed500Employees();
+    seedEmployees();
     seedMonthlyAttendanceHistory();
   }
 }
@@ -128,7 +128,7 @@ function seedMonthlyAttendanceHistory() {
   const prevLast = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate();
   periods.push({ year: prev.getFullYear(), month: prev.getMonth(), lastDay: prevLast });
 
-  // Current month up to yesterday (today itself is seeded live by seed500Employees)
+  // Current month up to yesterday (today itself is seeded live by seedEmployees)
   if (now.getDate() > 1) {
     periods.push({ year: now.getFullYear(), month: now.getMonth(), lastDay: now.getDate() - 1 });
   }
@@ -226,7 +226,7 @@ const LAST_NAMES = [
 const DEPARTMENTS = [
   {
     name: 'Production & Manufacturing',
-    count: 145,
+    count: 4,
     shifts: ['MORNING', 'EVENING', 'NIGHT', 'GENERAL'],
     roles: [
       { title: 'CNC Machine Operator', salary: 28000, ot: 175 },
@@ -237,7 +237,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Engineering & R&D',
-    count: 95,
+    count: 3,
     shifts: ['GENERAL', 'MORNING'],
     roles: [
       { title: 'Senior Software Engineer', salary: 85000, ot: 450 },
@@ -248,7 +248,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Quality Assurance',
-    count: 60,
+    count: 1,
     shifts: ['MORNING', 'EVENING', 'GENERAL'],
     roles: [
       { title: 'Quality Inspector', salary: 32000, ot: 195 },
@@ -258,7 +258,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Operations & Logistics',
-    count: 70,
+    count: 2,
     shifts: ['MORNING', 'EVENING', 'GENERAL'],
     roles: [
       { title: 'Warehouse Executive', salary: 26000, ot: 165 },
@@ -268,7 +268,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Sales & Field Marketing',
-    count: 50,
+    count: 1,
     shifts: ['GENERAL'],
     roles: [
       { title: 'Regional Sales Executive', salary: 45000, ot: 260 },
@@ -278,7 +278,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Customer Support',
-    count: 40,
+    count: 1,
     shifts: ['MORNING', 'EVENING', 'NIGHT'],
     roles: [
       { title: 'Technical Support Specialist', salary: 34000, ot: 205 },
@@ -287,7 +287,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Finance & Accounts',
-    count: 20,
+    count: 1,
     shifts: ['GENERAL'],
     roles: [
       { title: 'Senior Accountant', salary: 52000, ot: 290 },
@@ -296,7 +296,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'HR & Administration',
-    count: 20,
+    count: 2,
     shifts: ['GENERAL'],
     roles: [
       { title: 'HR Operations Specialist', salary: 48000, ot: 280 },
@@ -332,7 +332,7 @@ export function getTodayDateString(): string {
   return `${y}-${m}-${d}`;
 }
 
-function seed500Employees() {
+function seedEmployees() {
   const today = getTodayDateString();
   const insertEmp = db.prepare(`
     INSERT INTO employees (
@@ -408,15 +408,15 @@ function seed500Employees() {
 
         const employeeId = Number(res.lastInsertRowid);
 
-        // Seed realistic today status across the 500 employees:
-        // ~360 checked in (some already checked out with overtime, some currently working),
-        // ~28 on approved leave, ~112 yet to check in (ideal for testing check-in!)
-        const mod = empIndex % 25;
+        // Seed realistic today status across the 15 employees:
+        // ~7 checked out (some with overtime), ~5 working inside,
+        // 1 on approved leave, ~2 yet to check in (ideal for testing check-in!)
+        const mod = empIndex % 12;
         const confidence = Number((96.4 + (empIndex % 35) * 0.1).toFixed(1));
         const device = empIndex % 2 === 0 ? 'Gate-1 Android Tab Kiosk' : 'Mobile App Biometric Cam';
 
         if (mod === 0) {
-          // On Approved Leave today (20 employees)
+          // On Approved Leave today (1 employee)
           const leaveTypes = ['CL', 'SL', 'PL'];
           const lType = leaveTypes[empIndex % leaveTypes.length];
           insertLeave.run(
@@ -443,8 +443,8 @@ function seed500Employees() {
             'HR Leave System',
             `${today}T08:00:00`
           );
-        } else if (mod >= 1 && mod <= 5) {
-          // Completed shift & checked out (with overtime for some!) - 100 employees
+        } else if (mod >= 1 && mod <= 4) {
+          // Completed shift & checked out (with overtime for some!) - 7 employees
           const checkIn = shiftId === 'MORNING' ? '05:56' : '08:54';
           const hasOt = empIndex % 2 === 0;
           const checkOut = shiftId === 'MORNING'
@@ -476,10 +476,10 @@ function seed500Employees() {
               confidence, device, 0, workHours, otHours
             );
           }
-        } else if (mod >= 6 && mod <= 18) {
-          // Currently Checked In (Present inside plant/office) - 260 employees
-          const isLate = mod === 17 || mod === 18;
-          const lateMins = isLate ? 18 + (empIndex % 25) : 0;
+        } else if (mod >= 5 && mod <= 8) {
+          // Currently Checked In (Present inside plant/office) - 4 employees
+          const isLate = mod === 7 || mod === 8;
+          const lateMins = isLate ? 18 + (empIndex % 12) : 0;
           const checkIn = shiftId === 'MORNING'
             ? (isLate ? '06:24' : '05:55')
             : (isLate ? '09:28' : '08:52');
@@ -508,7 +508,7 @@ function seed500Employees() {
             );
           }
         }
-        // mod 19..24 (~120 employees) are not checked in yet today -> ready for immediate Check-In testing!
+        // mod 9..11 (3 employees) are not checked in yet today -> ready for immediate Check-In testing!
 
         empIndex++;
       }

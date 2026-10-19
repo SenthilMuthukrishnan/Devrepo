@@ -77,11 +77,11 @@ function computePayroll(emp: any, attendance: any) {
   };
 }
 
-// Batch payroll for all 500 employees for a given month
+// Batch payroll for all employees for a given month
 payrollRouter.get('/batch', (req, res) => {
   try {
     const monthStr = String(req.query.month || ''); // YYYY-MM
-    const limit = Math.min(Number(req.query.limit || 500), 500);
+    const limit = Math.min(Number(req.query.limit || 100), 500);
 
     const employees = db.prepare('SELECT * FROM employees WHERE status = ? ORDER BY emp_code ASC LIMIT ?').all('ACTIVE', limit);
 

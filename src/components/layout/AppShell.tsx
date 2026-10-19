@@ -67,7 +67,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           </div>
           <div className="text-left">
             <div className="font-extrabold text-white tracking-tight leading-none">
-              BioPulse <span className="text-emerald-400">500</span>
+              BioPulse <span className="text-emerald-400">15</span>
             </div>
             <div className="text-[10px] text-slate-500 mt-1">Biometric Attendance</div>
           </div>
@@ -113,7 +113,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             <Layers className="w-3.5 h-3.5 text-emerald-400" />
             <span>Module Roadmap</span>
           </button>
-          <p className="text-[10px] text-slate-600 text-center mt-3">500 Staff • v1.0</p>
+          <p className="text-[10px] text-slate-600 text-center mt-3">15 Staff • v1.0</p>
         </div>
       </aside>
 
@@ -126,7 +126,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               <ScanFace className="w-4 h-4" />
             </div>
             <span className="font-extrabold text-white tracking-tight">
-              BioPulse <span className="text-emerald-400">500</span>
+              BioPulse <span className="text-emerald-400">15</span>
             </span>
           </div>
           <div className="hidden md:block text-xs text-slate-400">

@@ -23,7 +23,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
-// List / search 500+ employees with filters, biometric stats & today's attendance state
+// List / search employees with filters, biometric stats & today's attendance state
 employeesRouter.get('/', (req, res) => {
   try {
     const today = getTodayDateString();
@@ -130,7 +130,7 @@ employeesRouter.get('/', (req, res) => {
     res.json({
       total: totalRow.total,
       stats: {
-        totalActive: statsRow.totalActive || 500,
+        totalActive: statsRow.totalActive || 0,
         enrolledCount: statsRow.enrolledCount || 0,
         pendingCount: statsRow.pendingCount || 0,
       },
@@ -229,7 +229,7 @@ employeesRouter.post('/', (req, res) => {
     }
 
     const maxIdRow = db.prepare('SELECT MAX(id) as maxId FROM employees').get() as { maxId: number | null };
-    const nextNum = (maxIdRow.maxId || 500) + 1;
+        const nextNum = (maxIdRow.maxId || 0) + 1;
     const empCode = `EMP${String(nextNum).padStart(4, '0')}`;
 
     const parts = String(full_name).trim().split(/\s+/);

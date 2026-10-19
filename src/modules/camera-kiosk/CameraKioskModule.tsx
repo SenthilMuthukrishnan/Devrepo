@@ -52,7 +52,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
   const [empSearch, setEmpSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
-  const [totalMatchedEmployees, setTotalMatchedEmployees] = useState(500);
+  const [totalMatchedEmployees, setTotalMatchedEmployees] = useState(15);
   const [selectedTestEmployee, setSelectedTestEmployee] = useState<EmployeeRecord | null>(null);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
@@ -450,7 +450,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                     LIVENESS: ON
                   </span>
                   <span className="px-2 py-0.5 rounded bg-slate-950/80 border border-slate-800 text-sky-300">
-                    1:500 DB
+                    1:15 DB
                   </span>
                 </div>
               </div>
@@ -570,14 +570,14 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
           )}
         </div>
 
-        {/* 500-Employee Mobile Selector & Live Stream */}
+        {/* 15-Employee Mobile Selector & Live Stream */}
         <div className="@md:col-span-5 space-y-3">
           <div className="rounded-2xl border border-slate-800/90 bg-[#0d1322] p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-emerald-400" />
                 <h3 className="text-xs font-bold text-white">
-                  Test Any of 500 Employees
+                  Test Any of 15 Employees
                 </h3>
               </div>
               <span className="text-xs font-mono text-slate-400">
@@ -591,14 +591,14 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                 type="text"
                 value={empSearch}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search EMP0001..EMP0500 or Name..."
+                placeholder="Search EMP0001..EMP0015 or Name..."
                 className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
             <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
               {[
-                { id: 'ALL', label: 'All (500)' },
+                { id: 'ALL', label: 'All (15)' },
                 { id: 'NOT_CHECKED_IN', label: 'Not In' },
                 { id: 'INSIDE', label: 'Working' },
                 { id: 'CHECKED_OUT', label: 'Out' },

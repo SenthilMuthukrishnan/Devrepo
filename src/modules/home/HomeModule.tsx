@@ -47,7 +47,7 @@ export const HomeModule: React.FC<{ loading?: boolean; onRefresh?: () => void }>
         </div>
         <p className="text-sm text-slate-300 font-medium mt-1">{currentDate}</p>
         <p className="text-[11px] text-slate-400 mt-1">
-          BioPulse 500 • 500 Staff Biometric Attendance
+          BioPulse 15 • 15 Staff Biometric Attendance
         </p>
       </div>
 

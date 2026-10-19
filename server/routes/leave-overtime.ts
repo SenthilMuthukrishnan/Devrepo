@@ -16,21 +16,21 @@ leaveOvertimeRouter.get('/requests', (req, res) => {
     const params: Array<string | number> = [];
 
     if (employeeId) {
-      whereClauses.push('employee_id = ?');
+      whereClauses.push('lr.employee_id = ?');
       params.push(employeeId);
     }
     if (leaveType && leaveType !== 'ALL') {
-      whereClauses.push('leave_type = ?');
+      whereClauses.push('lr.leave_type = ?');
       params.push(leaveType);
     }
     if (status && status !== 'ALL') {
-      whereClauses.push('status = ?');
+      whereClauses.push('lr.status = ?');
       params.push(status);
     }
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
-    const countQuery = `SELECT COUNT(*) as total FROM leave_requests ${whereSql}`;
+    const countQuery = `SELECT COUNT(*) as total FROM leave_requests lr ${whereSql}`;
     const totalRow = db.prepare(countQuery).get(...params) as { total: number };
 
     const rowsQuery = `
@@ -129,7 +129,7 @@ leaveOvertimeRouter.put('/requests/:id', (req, res) => {
   }
 });
 
-// Overtime ledger for 500 employees
+// Overtime ledger for all employees
 leaveOvertimeRouter.get('/overtime', (req, res) => {
   try {
     const today = getTodayDateString();
