@@ -121,12 +121,19 @@ export async function updateEmployee(
  */
 export async function removeEmployee(
   employeeId: number,
-  payload: { separation_date?: string; separation_reason?: string } = {}
-): Promise<{ success: boolean; message: string; employee: EmployeeRecord }> {
-  const res = await fetch(`${API_BASE}/api/employees/${employeeId}`, {
+  payload: {
+    separation_date?: string;
+    separation_reason?: string;
+    /** Erase the employee row and all attendance/leave/punch history. Irreversible. */
+    permanent?: boolean;
+  } = {}
+): Promise<{ success: boolean; permanent?: boolean; message: string; employee: EmployeeRecord }> {
+  const { permanent = false, ...body } = payload;
+  const qs = permanent ? '?permanent=true' : '';
+  const res = await fetch(`${API_BASE}/api/employees/${employeeId}${qs}`, {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
+    body: JSON.stringify(body),
   });
   if (!res.ok) await throwApiError(res, 'Failed to remove employee');
   return res.json();

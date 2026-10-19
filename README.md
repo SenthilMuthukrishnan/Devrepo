@@ -26,6 +26,16 @@ Zero-cost, Android Mobile & Tablet-Responsive Biometric Face Recognition Attenda
 - Offboarding is a **soft removal** (`DELETE /api/employees/:id`): the employee is dropped from the active directory, dashboards, reports and payroll runs, face matching and punches are blocked, and biometric data is cleared — but attendance, leave and payroll history is preserved.
 - **Restore to Active Workforce** (`POST /api/employees/:id/restore`) undoes an accidental offboarding; the employee re-appears as active with face enrollment pending.
 
+### How to delete an employee
+1. Open **Staff** (Module 2) and stay on the **Active Workforce** tab.
+2. Press the red **trash icon** on the employee's card (or open the card → *Employee Has Left the Company*).
+3. Choose the last working day and a reason, then confirm:
+   - **Confirm — Employee Has Left** — soft removal. The employee leaves the active roster, dashboards, reports, payroll and face matching and moves to the **Former Staff** tab; history is kept.
+   - Tick **Permanently delete this record** first to also erase their attendance, leave and punch history (`DELETE /api/employees/:id?permanent=true`). Irreversible.
+4. Former staff can be **Restored** or **Deleted** permanently from the Former Staff tab.
+
+> Note: the SQLite file (`biopulse500.db`) is created on first run and re-seeded with 15 employees whenever it is missing. In the ephemeral preview sandbox the file is recreated after an environment restart, so a removal can appear undone — the employee comes back as a fresh seed. On a host with a persistent disk/volume (Railway, Render, Fly.io) removals persist.
+
 ## Light & Dark Mode
 - Theme toggle in the header and the desktop sidebar; the choice is saved to `localStorage` and pre-applied in `index.html` so there is no flash on reload. First visit follows the OS `prefers-color-scheme`.
 - The palette is defined once as CSS variables in `src/index.css` (`@theme` tokens + `html.light` overrides) and every component uses semantic utilities (`bg-panel`, `text-ink`, `border-hairline`, `text-accent`, …), so both themes stay in sync.

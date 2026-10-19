@@ -429,7 +429,8 @@ employeesRouter.delete('/:id/biometrics', (req, res) => {
 employeesRouter.delete('/:id', (req, res) => {
   try {
     const employeeId = Number(req.params.id);
-    const { separation_date, separation_reason, reason } = req.body || {};
+    const { separation_date, separation_reason, reason, permanent } = req.body || {};
+    const hardDelete = String(req.query.permanent || permanent || '').toLowerCase() === 'true';
 
     const emp = db.prepare('SELECT id, emp_code, full_name, status FROM employees WHERE id = ?').get(employeeId) as
       | { id: number; emp_code: string; full_name: string; status: string }
@@ -438,8 +439,30 @@ employeesRouter.delete('/:id', (req, res) => {
     if (!emp) {
       return res.status(404).json({ error: 'Employee not found' });
     }
+
+    // Permanent delete: erase the employee row and every history record that
+    // references it. Used when a record was created by mistake; irreversible.
+    if (hardDelete) {
+      const purge = db.transaction(() => {
+        db.prepare('DELETE FROM attendance_logs WHERE employee_id = ?').run(employeeId);
+        db.prepare('DELETE FROM punch_events WHERE employee_id = ?').run(employeeId);
+        db.prepare('DELETE FROM leave_requests WHERE employee_id = ?').run(employeeId);
+        db.prepare('DELETE FROM employees WHERE id = ?').run(employeeId);
+      });
+      purge();
+
+      return res.json({
+        success: true,
+        permanent: true,
+        message: `${emp.full_name} (${emp.emp_code}) permanently deleted along with their attendance, leave and punch history`,
+        employee: { id: emp.id, emp_code: emp.emp_code, full_name: emp.full_name },
+      });
+    }
+
     if (emp.status !== 'ACTIVE') {
-      return res.status(409).json({ error: `${emp.full_name} has already left the company` });
+      return res.status(409).json({
+        error: `${emp.full_name} has already left the company. Use the Former Staff tab to delete the record permanently.`,
+      });
     }
 
     const leftOn = separation_date || getTodayDateString();

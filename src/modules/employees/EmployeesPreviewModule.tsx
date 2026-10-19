@@ -18,6 +18,7 @@ import {
   Search,
   ShieldAlert,
   ShieldCheck,
+  Trash2,
   Undo2,
   UserCheck,
   UserMinus,
@@ -127,9 +128,11 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
   const [removeForm, setRemoveForm] = useState({
     separation_date: new Date().toISOString().slice(0, 10),
     separation_reason: 'Resigned',
+    permanent: false,
   });
   const [removing, setRemoving] = useState(false);
   const [restoringId, setRestoringId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const showToast = (msg: string, kind: 'success' | 'error' = 'success') => {
     setToastKind(kind);
@@ -290,6 +293,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
     setRemoveForm({
       separation_date: new Date().toISOString().slice(0, 10),
       separation_reason: 'Resigned',
+      permanent: false,
     });
   };
 
@@ -297,8 +301,13 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
     e.preventDefault();
     if (!removeTarget) return;
     setRemoving(true);
+    const target = removeTarget;
     try {
-      const res = await removeEmployee(removeTarget.id, removeForm);
+      const res = await removeEmployee(target.id, removeForm);
+      // Drop the card immediately so a failed refresh can never leave a
+      // removed employee visible in the list.
+      setEmployees((prev) => prev.filter((e) => e.id !== target.id));
+      setTotalMatched((prev) => Math.max(0, prev - 1));
       showToast(res.message);
       setRemoveTarget(null);
       setDetailEmpId(null);
@@ -308,6 +317,24 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
       showToast(err instanceof Error ? err.message : 'Failed to remove employee', 'error');
     } finally {
       setRemoving(false);
+    }
+  };
+
+  /** Permanent delete for records created by mistake (Former Staff tab). */
+  const handleDeletePermanently = async (emp: EmployeeRecord) => {
+    setDeletingId(emp.id);
+    try {
+      const res = await removeEmployee(emp.id, { permanent: true });
+      setEmployees((prev) => prev.filter((e) => e.id !== emp.id));
+      setTotalMatched((prev) => Math.max(0, prev - 1));
+      showToast(res.message);
+      setDetailEmpId(null);
+      await loadData(search, department, shiftFilter, enrolledFilter, page, employeeStatus);
+      if (onEmployeeUpdated) onEmployeeUpdated();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete employee', 'error');
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -642,25 +669,39 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                       Left
                     </span>
                   ) : (
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold shrink-0 ${
-                        emp.face_enrolled
-                          ? 'bg-emerald-500/15 text-accent-soft border border-emerald-500/30'
-                          : 'bg-amber-500/15 text-warn-soft border border-amber-500/30'
-                      }`}
-                    >
-                      {emp.face_enrolled ? (
-                        <>
-                          <ShieldCheck className="w-3 h-3" />
-                          Face ID
-                        </>
-                      ) : (
-                        <>
-                          <ShieldAlert className="w-3 h-3" />
-                          Pending
-                        </>
-                      )}
-                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${
+                          emp.face_enrolled
+                            ? 'bg-emerald-500/15 text-accent-soft border border-emerald-500/30'
+                            : 'bg-amber-500/15 text-warn-soft border border-amber-500/30'
+                        }`}
+                      >
+                        {emp.face_enrolled ? (
+                          <>
+                            <ShieldCheck className="w-3 h-3" />
+                            Face ID
+                          </>
+                        ) : (
+                          <>
+                            <ShieldAlert className="w-3 h-3" />
+                            Pending
+                          </>
+                        )}
+                      </span>
+                      <button
+                        type="button"
+                        title={`Remove ${emp.full_name} — resigned / left the company`}
+                        aria-label={`Remove ${emp.full_name}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openRemoveModal(emp);
+                        }}
+                        className="p-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-danger border border-rose-500/30 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -720,6 +761,19 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                     >
                       <Undo2 className="w-3 h-3" />
                       Restore
+                    </button>
+                    <button
+                      type="button"
+                      disabled={deletingId === emp.id}
+                      title="Delete this record permanently (attendance, leave and payroll history is erased)"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeletePermanently(emp);
+                      }}
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-rose-500/15 hover:bg-rose-500/25 text-danger border border-rose-500/30 disabled:opacity-50 transition cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      Delete
                     </button>
                   </div>
                 ) : (
@@ -1237,10 +1291,26 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
               <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-[11px] text-warn-soft flex items-start gap-2">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                 <span>
-                  They will be removed from the active directory, dashboards and face recognition.
-                  Biometrics are cleared. Attendance, leave and payroll history is kept.
+                  {removeForm.permanent
+                    ? 'Permanent delete: the employee record AND all attendance, leave and payroll history will be erased. This cannot be undone.'
+                    : 'They will be removed from the active directory, dashboards and face recognition. Biometrics are cleared, but attendance, leave and payroll history is kept — they move to the Former Staff tab.'}
                 </span>
               </div>
+
+              <label className="flex items-start gap-2 p-2.5 rounded-xl bg-inset border border-hairline cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={removeForm.permanent}
+                  onChange={(e) => setRemoveForm({ ...removeForm, permanent: e.target.checked })}
+                  className="mt-0.5 w-3.5 h-3.5 accent-rose-500 cursor-pointer"
+                />
+                <span className="text-[11px] text-body leading-snug">
+                  <strong className="text-ink">Permanently delete this record</strong>
+                  <br />
+                  Also erases attendance, leave and punch history. Use this only for records created
+                  by mistake.
+                </span>
+              </label>
 
               <div>
                 <label className="block text-xs uppercase tracking-wider text-muted mb-1">
@@ -1289,8 +1359,16 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                   disabled={removing}
                   className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white text-xs font-bold shadow-lg shadow-rose-500/20 disabled:opacity-50 transition cursor-pointer"
                 >
-                  <UserMinus className="w-4 h-4" />
-                  {removing ? 'Removing…' : 'Confirm — Employee Has Left'}
+                  {removeForm.permanent ? (
+                    <Trash2 className="w-4 h-4" />
+                  ) : (
+                    <UserMinus className="w-4 h-4" />
+                  )}
+                  {removing
+                    ? 'Working…'
+                    : removeForm.permanent
+                    ? 'Delete Permanently'
+                    : 'Confirm — Employee Has Left'}
                 </button>
                 <button
                   type="button"
