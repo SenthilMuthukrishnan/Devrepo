@@ -84,7 +84,7 @@ function workingDaysBetween(from: string, to: string): number {
 // ---------- daily muster roll ----------
 
 // Daily attendance muster roll with filters
-reportsRouter.get('/daily', (req, res) => {
+reportsRouter.get('/daily', async (req, res) => {
   try {
     const dateFilter = String(req.query.date || getTodayDateString());
     const statusFilter = String(req.query.status || '').trim();
@@ -109,7 +109,7 @@ reportsRouter.get('/daily', (req, res) => {
       }
     }
 
-    const rows = db.prepare(`
+    const rows = await db.all(`
       SELECT
         e.id,
         e.emp_code,
@@ -129,7 +129,7 @@ reportsRouter.get('/daily', (req, res) => {
       WHERE ${whereClauses.join(' AND ')}
       ORDER BY e.emp_code ASC
       LIMIT ?
-    `).all(...params, limit);
+    `, ...params, limit);
 
     res.json({ date: dateFilter, total: rows.length, records: rows });
   } catch (error) {
@@ -140,7 +140,7 @@ reportsRouter.get('/daily', (req, res) => {
 
 // ---------- ranged attendance report (daily / weekly / monthly / yearly / custom) ----------
 
-reportsRouter.get('/range', (req, res) => {
+reportsRouter.get('/range', async (req, res) => {
   try {
     const range = String(req.query.range || 'weekly');
     const filters = readFilters(req);
@@ -153,7 +153,7 @@ reportsRouter.get('/range', (req, res) => {
     if (filters.search) { dayWhere.push('(e.full_name LIKE ? OR e.emp_code LIKE ?)'); dayParams.push(`%${filters.search}%`, `%${filters.search}%`); }
 
     // Per-day attendance series
-    const dailySeries = db.prepare(`
+    const dailySeries = await db.all(`
       SELECT
         a.date,
         COUNT(*) as logged,
@@ -169,11 +169,11 @@ reportsRouter.get('/range', (req, res) => {
       WHERE ${dayWhere.join(' AND ')}
       GROUP BY a.date
       ORDER BY a.date ASC
-    `).all(...dayParams) as any[];
+    `, ...dayParams) as any[];
 
     // Per-month series (used by the yearly view)
     const monthParams: Array<string | number> = [from, to];
-    const monthlySeries = db.prepare(`
+    const monthlySeries = await db.all(`
       SELECT
         substr(a.date, 1, 7) as month,
         COUNT(*) as logged,
@@ -190,7 +190,7 @@ reportsRouter.get('/range', (req, res) => {
       ${filters.shiftId && filters.shiftId !== 'ALL' ? 'AND e.shift_id = ?' : ''}
       GROUP BY substr(a.date, 1, 7)
       ORDER BY month ASC
-    `).all(...monthParams,
+    `, ...monthParams,
       ...(filters.department && filters.department !== 'ALL' ? [filters.department] : []),
       ...(filters.shiftId && filters.shiftId !== 'ALL' ? [filters.shiftId] : [])) as any[];
 
@@ -198,7 +198,7 @@ reportsRouter.get('/range', (req, res) => {
     const empParams: Array<string | number> = [from, to];
     const empWhere = ["e.status = 'ACTIVE'"];
     empWhere.push(...employeeFilters(filters, empParams));
-    const empRows = db.prepare(`
+    const empRows = await db.all(`
       SELECT
         e.id,
         e.emp_code,
@@ -217,14 +217,14 @@ reportsRouter.get('/range', (req, res) => {
       WHERE ${empWhere.join(' AND ')}
       GROUP BY e.id
       ORDER BY e.emp_code ASC
-    `).all(...empParams) as any[];
+    `, ...empParams) as any[];
 
     // Period summary numbers (staff count respects the active filters)
     const staffParams: Array<string | number> = [];
     const staffWhere = ["e.status = 'ACTIVE'", ...employeeFilters(filters, staffParams)];
-    const staffCount = (db.prepare(`SELECT COUNT(*) as c FROM employees e WHERE ${staffWhere.join(' AND ')}`).get(...staffParams) as any).c;
+    const staffCount = (await db.get(`SELECT COUNT(*) as c FROM employees e WHERE ${staffWhere.join(' AND ')}`, ...staffParams) as any).c;
     const totalsWhere = ['a.date BETWEEN ? AND ?', ...dayWhere.slice(1)].join(' AND ');
-    const totals = db.prepare(`
+    const totals = await db.get(`
       SELECT
         COUNT(DISTINCT a.date) as data_days,
         COUNT(*) as logged_shifts,
@@ -235,7 +235,7 @@ reportsRouter.get('/range', (req, res) => {
       FROM attendance_logs a
       JOIN employees e ON e.id = a.employee_id AND e.status = 'ACTIVE'
       WHERE ${totalsWhere}
-    `).get(...dayParams) as any;
+    `, ...dayParams) as any;
 
     const workingDays = workingDaysBetween(from, to);
     // Rate is measured against days that actually have logged data, so a
@@ -271,7 +271,7 @@ reportsRouter.get('/range', (req, res) => {
 
 // ---------- monthly summary (per department / shift) ----------
 
-reportsRouter.get('/monthly', (req, res) => {
+reportsRouter.get('/monthly', async (req, res) => {
   try {
     const yearMonth = String(req.query.month || ''); // format YYYY-MM
     const filters = readFilters(req);
@@ -283,7 +283,7 @@ reportsRouter.get('/monthly', (req, res) => {
     if (yearMonth) params.push(`${yearMonth}%`);
     whereClauses.push(...employeeFilters(filters, params));
 
-    const monthlyRows = db.prepare(`
+    const monthlyRows = await db.all(`
       SELECT
         e.emp_code,
         e.full_name,
@@ -302,7 +302,7 @@ reportsRouter.get('/monthly', (req, res) => {
       GROUP BY e.id
       ORDER BY present_days DESC
       LIMIT 500
-    `).all(...params);
+    `, ...params);
 
     res.json({ month: yearMonth || 'current', total: monthlyRows.length, records: monthlyRows });
   } catch (error) {
@@ -313,7 +313,7 @@ reportsRouter.get('/monthly', (req, res) => {
 
 // ---------- late arrival audit (optionally over a date range) ----------
 
-reportsRouter.get('/late-audit', (req, res) => {
+reportsRouter.get('/late-audit', async (req, res) => {
   try {
     const dateFilter = String(req.query.date || getTodayDateString());
     const from = String(req.query.from || dateFilter);
@@ -328,7 +328,7 @@ reportsRouter.get('/late-audit', (req, res) => {
       params.push(department);
     }
 
-    const rows = db.prepare(`
+    const rows = await db.all(`
       SELECT
         e.emp_code,
         e.full_name,
@@ -343,7 +343,7 @@ reportsRouter.get('/late-audit', (req, res) => {
       WHERE a.date BETWEEN ? AND ? AND a.late_minutes > ? ${deptCondition}
       ORDER BY a.late_minutes DESC
       LIMIT 500
-    `).all(...params);
+    `, ...params);
 
     res.json({ date: dateFilter, from, to, total: rows.length, records: rows });
   } catch (error) {
@@ -354,7 +354,7 @@ reportsRouter.get('/late-audit', (req, res) => {
 
 // ---------- overtime summary by department (optionally over a date range) ----------
 
-reportsRouter.get('/overtime-summary', (req, res) => {
+reportsRouter.get('/overtime-summary', async (req, res) => {
   try {
     const dateFilter = String(req.query.date || getTodayDateString());
     const from = String(req.query.from || dateFilter);
@@ -365,7 +365,7 @@ reportsRouter.get('/overtime-summary', (req, res) => {
     const deptWhere = department && department !== 'ALL' ? 'AND e.department = ?' : '';
     if (department && department !== 'ALL') params.push(department);
 
-    const rows = db.prepare(`
+    const rows = await db.all(`
       SELECT
         e.department,
         COUNT(DISTINCT a.employee_id) as staff_with_ot,
@@ -376,7 +376,7 @@ reportsRouter.get('/overtime-summary', (req, res) => {
       WHERE a.date BETWEEN ? AND ? AND a.overtime_hours > 0 ${deptWhere}
       GROUP BY e.department
       ORDER BY total_ot_hours DESC
-    `).all(...params);
+    `, ...params);
 
     res.json({ date: dateFilter, from, to, total: rows.length, summary: rows });
   } catch (error) {

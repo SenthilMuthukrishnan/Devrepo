@@ -15,7 +15,7 @@ function parseHHMMToMinutes(hhmm: string): number {
   return (h || 0) * 60 + (m || 0);
 }
 
-attendanceRouter.post('/punch', (req, res) => {
+attendanceRouter.post('/punch', async (req, res) => {
   try {
     const today = getTodayDateString();
     const {
@@ -32,35 +32,68 @@ attendanceRouter.post('/punch', (req, res) => {
       return res.status(400).json({ error: 'employeeId is required' });
     }
 
-    const emp = db.prepare(`
+    const emp = await db.get(`
       SELECT *
       FROM employees
       WHERE id = ?
-    `).get(Number(employeeId)) as any;
+    `, Number(employeeId)) as any;
 
     if (!emp) {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    const existingLog = db.prepare(`
+    if (emp.status && emp.status !== 'ACTIVE') {
+      return res.status(409).json({
+        error: `${emp.full_name} (${emp.emp_code}) is no longer an active employee — punches are disabled`,
+      });
+    }
+
+    const existingLog = await db.get(`
       SELECT *
       FROM attendance_logs
       WHERE employee_id = ? AND date = ?
-    `).get(emp.id, today) as any;
+    `, emp.id, today) as any;
 
     const shift = SHIFTS.find((s) => s.id === emp.shift_id) || SHIFTS[0];
     const punchTime = customPunchTime || getNowTimeHHMM();
 
     // Determine effective action: CHECK_IN or CHECK_OUT
+    const hasOpenShift = Boolean(existingLog?.check_in_time && !existingLog?.check_out_time);
+    const shiftCompleted = Boolean(existingLog?.check_out_time);
+
     let action: 'CHECK_IN' | 'CHECK_OUT' = 'CHECK_IN';
     if (mode === 'CHECK_IN') {
+      if (hasOpenShift) {
+        return res.status(409).json({
+          error: `${emp.full_name} already punched in at ${existingLog.check_in_time} today`,
+        });
+      }
+      if (shiftCompleted) {
+        return res.status(409).json({
+          error: `${emp.full_name} already completed today's shift (out at ${existingLog.check_out_time})`,
+        });
+      }
       action = 'CHECK_IN';
     } else if (mode === 'CHECK_OUT') {
+      if (!existingLog?.check_in_time) {
+        return res.status(409).json({
+          error: `${emp.full_name} has not punched in yet today — punch in first`,
+        });
+      }
+      if (shiftCompleted) {
+        return res.status(409).json({
+          error: `${emp.full_name} already punched out at ${existingLog.check_out_time} today`,
+        });
+      }
       action = 'CHECK_OUT';
     } else {
-      // AUTO mode: if not checked in yet (or was ON_LEAVE / CHECKED_OUT and re-punching), decide smartly
-      if (existingLog && existingLog.check_in_time && !existingLog.check_out_time) {
+      // AUTO mode: an open shift closes, otherwise start a new shift.
+      if (hasOpenShift) {
         action = 'CHECK_OUT';
+      } else if (shiftCompleted) {
+        return res.status(409).json({
+          error: `${emp.full_name} already completed today's shift (out at ${existingLog.check_out_time})`,
+        });
       } else {
         action = 'CHECK_IN';
       }
@@ -76,7 +109,7 @@ attendanceRouter.post('/punch', (req, res) => {
       const status = lateMinutes > 0 ? 'LATE' : 'PRESENT';
 
       if (existingLog) {
-        db.prepare(`
+        await db.run(`
           UPDATE attendance_logs
           SET check_in_time = ?,
               check_out_time = NULL,
@@ -89,25 +122,22 @@ attendanceRouter.post('/punch', (req, res) => {
               snapshot_url = COALESCE(?, snapshot_url),
               updated_at = ?
           WHERE id = ?
-        `).run(
-          punchTime,
+        `, punchTime,
           status,
           lateMinutes,
           confidenceScore,
           deviceLabel,
           snapshotUrl,
           new Date().toISOString(),
-          existingLog.id
-        );
+          existingLog.id);
       } else {
-        db.prepare(`
+        await db.run(`
           INSERT INTO attendance_logs (
             employee_id, emp_code, date, check_in_time, check_out_time,
             status, late_minutes, work_hours, overtime_hours, confidence_score,
             verify_mode, device_label, snapshot_url, updated_at
           ) VALUES (?, ?, ?, ?, NULL, ?, ?, 0, 0, ?, 'FACE_CAMERA', ?, ?, ?)
-        `).run(
-          emp.id,
+        `, emp.id,
           emp.emp_code,
           today,
           punchTime,
@@ -116,18 +146,16 @@ attendanceRouter.post('/punch', (req, res) => {
           confidenceScore,
           deviceLabel,
           snapshotUrl,
-          new Date().toISOString()
-        );
+          new Date().toISOString());
       }
 
-      db.prepare(`
+      await db.run(`
         INSERT INTO punch_events (
           employee_id, emp_code, full_name, department, shift_id,
           avatar_color, avatar_initials, punch_type, punch_time, date,
           confidence_score, device_label, late_minutes, work_hours, overtime_hours
         ) VALUES (?, ?, ?, ?, ?, ?, ?, 'CHECK_IN', ?, ?, ?, ?, ?, 0, 0)
-      `).run(
-        emp.id,
+      `, emp.id,
         emp.emp_code,
         emp.full_name,
         emp.department,
@@ -138,11 +166,11 @@ attendanceRouter.post('/punch', (req, res) => {
         today,
         confidenceScore,
         deviceLabel,
-        lateMinutes
-      );
+        lateMinutes);
 
       return res.json({
         success: true,
+        message: `${emp.full_name} punched IN at ${punchTime}`,
         punchType: 'CHECK_IN',
         punchTime,
         status,
@@ -186,7 +214,7 @@ attendanceRouter.post('/punch', (req, res) => {
       const overtimePay = Math.round(overtimeHours * (emp.hourly_ot_rate || 200));
 
       if (existingLog) {
-        db.prepare(`
+        await db.run(`
           UPDATE attendance_logs
           SET check_in_time = COALESCE(check_in_time, ?),
               check_out_time = ?,
@@ -198,8 +226,7 @@ attendanceRouter.post('/punch', (req, res) => {
               snapshot_url = COALESCE(?, snapshot_url),
               updated_at = ?
           WHERE id = ?
-        `).run(
-          checkInTime,
+        `, checkInTime,
           punchTime,
           workHours,
           overtimeHours,
@@ -207,17 +234,15 @@ attendanceRouter.post('/punch', (req, res) => {
           deviceLabel,
           snapshotUrl,
           new Date().toISOString(),
-          existingLog.id
-        );
+          existingLog.id);
       } else {
-        db.prepare(`
+        await db.run(`
           INSERT INTO attendance_logs (
             employee_id, emp_code, date, check_in_time, check_out_time,
             status, late_minutes, work_hours, overtime_hours, confidence_score,
             verify_mode, device_label, snapshot_url, updated_at
           ) VALUES (?, ?, ?, ?, ?, 'CHECKED_OUT', 0, ?, ?, ?, 'FACE_CAMERA', ?, ?, ?)
-        `).run(
-          emp.id,
+        `, emp.id,
           emp.emp_code,
           today,
           checkInTime,
@@ -227,18 +252,16 @@ attendanceRouter.post('/punch', (req, res) => {
           confidenceScore,
           deviceLabel,
           snapshotUrl,
-          new Date().toISOString()
-        );
+          new Date().toISOString());
       }
 
-      db.prepare(`
+      await db.run(`
         INSERT INTO punch_events (
           employee_id, emp_code, full_name, department, shift_id,
           avatar_color, avatar_initials, punch_type, punch_time, date,
           confidence_score, device_label, late_minutes, work_hours, overtime_hours
         ) VALUES (?, ?, ?, ?, ?, ?, ?, 'CHECK_OUT', ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        emp.id,
+      `, emp.id,
         emp.emp_code,
         emp.full_name,
         emp.department,
@@ -251,11 +274,11 @@ attendanceRouter.post('/punch', (req, res) => {
         deviceLabel,
         existingLog?.late_minutes || 0,
         workHours,
-        overtimeHours
-      );
+        overtimeHours);
 
       return res.json({
         success: true,
+        message: `${emp.full_name} punched OUT at ${punchTime} (${workHours}h worked)`,
         punchType: 'CHECK_OUT',
         checkInTime,
         punchTime,
@@ -286,16 +309,16 @@ attendanceRouter.post('/punch', (req, res) => {
   }
 });
 
-attendanceRouter.get('/recent-punches', (_req, res) => {
+attendanceRouter.get('/recent-punches', async (_req, res) => {
   try {
     const today = getTodayDateString();
-    const punches = db.prepare(`
+    const punches = await db.all(`
       SELECT *
       FROM punch_events
       WHERE date = ?
       ORDER BY id DESC
       LIMIT 30
-    `).all(today);
+    `, today);
     res.json({ punches });
   } catch (error) {
     console.error('Error loading recent punches:', error);

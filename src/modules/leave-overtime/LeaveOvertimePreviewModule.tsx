@@ -122,9 +122,9 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
   };
 
   const getStatusStyle = (status: string) => {
-    if (status === 'APPROVED') return 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30';
-    if (status === 'REJECTED') return 'bg-rose-500/15 text-rose-300 border-rose-500/30';
-    return 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+    if (status === 'APPROVED') return 'bg-emerald-500/15 text-accent-soft border-emerald-500/30';
+    if (status === 'REJECTED') return 'bg-rose-500/15 text-danger-soft border-rose-500/30';
+    return 'bg-amber-500/15 text-warn-soft border-amber-500/30';
   };
 
   const leaveTypeLabels: Record<string, string> = {
@@ -137,23 +137,23 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
   return (
     <div className="space-y-4 pb-4">
       {/* Module 3 Header */}
-      <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-[#231b0e] via-[#0d1322] to-[#0d1322] p-5 shadow-xl space-y-2">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-bold uppercase tracking-wider">
+      <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/10 via-panel to-panel p-5 shadow-xl space-y-2">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/30 text-warn-soft text-xs font-bold uppercase tracking-wider">
           <CalendarDays className="w-3.5 h-3.5" />
           <span>Module 3 • Leave & Overtime Management</span>
         </div>
-        <h2 className="text-xl font-extrabold text-white">Leave Requests & OT Ledger</h2>
-        <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
+        <h2 className="text-xl font-extrabold text-ink">Leave Requests & OT Ledger</h2>
+        <p className="text-xs text-body leading-relaxed max-w-2xl">
           Full leave applications (CL, SL, PL, LOP), approve/reject workflow, and overtime ledger linked to biometric attendance for all 15 employees.
         </p>
       </div>
 
       {/* Leave Requests Section */}
-      <div className="rounded-2xl border border-slate-800/90 bg-[#0d1322] p-4 space-y-3 shadow-lg">
+      <div className="rounded-2xl border border-hairline/90 bg-panel p-4 space-y-3 shadow-lg">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-extrabold text-white">Leave Applications</h3>
-            <span className="text-xs font-mono text-slate-400">{totalRequests} total</span>
+            <h3 className="text-sm font-extrabold text-ink">Leave Applications</h3>
+            <span className="text-xs font-mono text-muted">{totalRequests} total</span>
           </div>
           <button
             type="button"
@@ -179,8 +179,8 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
               onClick={() => setLeaveStatusFilter(f.id)}
               className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition cursor-pointer border ${
                 leaveStatusFilter === f.id
-                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                  : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                  ? 'bg-amber-500/20 text-warn-soft border-amber-500/40'
+                  : 'bg-elevated text-muted border-hairline hover:text-ink-soft'
               }`}
             >
               {f.label}
@@ -189,7 +189,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
           <select
             value={leaveTypeFilter}
             onChange={(e) => setLeaveTypeFilter(e.target.value)}
-            className="px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-900 text-slate-300 border border-slate-800 focus:outline-none cursor-pointer"
+            className="px-2.5 py-1 rounded-lg text-xs font-bold bg-elevated text-body border border-hairline focus:outline-none cursor-pointer"
           >
             <option value="ALL">All Types</option>
             <option value="CL">CL</option>
@@ -201,8 +201,8 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
 
         {/* Add Leave Request Form */}
         {showAddForm && (
-          <form onSubmit={handleCreateLeave} className="rounded-2xl bg-slate-950 border border-amber-500/30 p-3.5 space-y-2.5 text-xs shadow-xl">
-            <div className="flex items-center gap-2 text-xs font-bold text-amber-300 mb-1">
+          <form onSubmit={handleCreateLeave} className="rounded-2xl bg-inset border border-amber-500/30 p-3.5 space-y-2.5 text-xs shadow-xl">
+            <div className="flex items-center gap-2 text-xs font-bold text-warn-soft mb-1">
               <Filter className="w-3.5 h-3.5" />
               Submit New Leave Request
             </div>
@@ -215,7 +215,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                   setAddForm({ ...addForm, employee_id: id });
                   setSelectedEmployee(emp || null);
                 }}
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 rounded-xl bg-elevated border border-hairline text-ink focus:outline-none focus:border-amber-500"
                 required
               >
                 <option value={0}>Select Employee</option>
@@ -228,7 +228,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
               <select
                 value={addForm.leave_type}
                 onChange={(e) => setAddForm({ ...addForm, leave_type: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 rounded-xl bg-elevated border border-hairline text-ink focus:outline-none focus:border-amber-500"
                 required
               >
                 <option value="CL">Casual Leave (CL)</option>
@@ -243,7 +243,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                 value={addForm.start_date}
                 onChange={(e) => setAddForm({ ...addForm, start_date: e.target.value })}
                 placeholder="Start Date"
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 rounded-xl bg-elevated border border-hairline text-ink focus:outline-none focus:border-amber-500"
                 required
               />
               <input
@@ -251,7 +251,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                 value={addForm.end_date}
                 onChange={(e) => setAddForm({ ...addForm, end_date: e.target.value })}
                 placeholder="End Date"
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 rounded-xl bg-elevated border border-hairline text-ink focus:outline-none focus:border-amber-500"
                 required
               />
               <input
@@ -260,7 +260,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                 value={addForm.days}
                 onChange={(e) => setAddForm({ ...addForm, days: Number(e.target.value) })}
                 placeholder="Days"
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-amber-500"
+                className="w-full px-3 py-2 rounded-xl bg-elevated border border-hairline text-ink focus:outline-none focus:border-amber-500"
               />
             </div>
             <textarea
@@ -268,7 +268,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
               onChange={(e) => setAddForm({ ...addForm, reason: e.target.value })}
               placeholder="Reason for leave..."
               rows={2}
-              className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white focus:outline-none focus:border-amber-500 resize-none"
+              className="w-full px-3 py-2 rounded-xl bg-elevated border border-hairline text-ink focus:outline-none focus:border-amber-500 resize-none"
               required
             />
             <div className="flex items-center gap-2">
@@ -284,7 +284,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                   setShowAddForm(false);
                   setSelectedEmployee(null);
                 }}
-                className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition cursor-pointer"
+                className="px-3 py-2 rounded-xl bg-control hover:bg-control-hover text-body text-xs font-semibold transition cursor-pointer"
               >
                 Cancel
               </button>
@@ -295,29 +295,29 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
         {/* Leave Requests List */}
         <div className="space-y-2">
           {loadingRequests ? (
-            <div className="py-8 text-center text-xs text-slate-400">Loading leave requests...</div>
+            <div className="py-8 text-center text-xs text-muted">Loading leave requests...</div>
           ) : requests.length === 0 ? (
-            <div className="py-8 text-center rounded-2xl border border-slate-800 bg-slate-950/50 text-xs text-slate-400">
+            <div className="py-8 text-center rounded-2xl border border-hairline bg-inset/50 text-xs text-muted">
               No leave requests match the current filters.
             </div>
           ) : (
             requests.map((req) => (
               <div
                 key={req.id}
-                className="rounded-2xl border border-slate-800/80 bg-slate-900/60 p-3.5 space-y-2 transition hover:border-slate-700"
+                className="rounded-2xl border border-hairline/80 bg-elevated/60 p-3.5 space-y-2 transition hover:border-hairline-strong"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-extrabold text-white truncate">
+                      <span className="text-xs font-extrabold text-ink truncate">
                         {req.full_name}
                       </span>
-                      <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
+                      <span className="text-xs font-mono text-accent bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
                         {req.emp_code}
                       </span>
-                      <span className="text-xs font-mono text-slate-400">{req.department}</span>
+                      <span className="text-xs font-mono text-muted">{req.department}</span>
                     </div>
-                    <div className="text-[11px] text-slate-300 font-medium mt-0.5">
+                    <div className="text-[11px] text-body font-medium mt-0.5">
                       {leaveTypeLabels[req.leave_type] || req.leave_type}
                     </div>
                   </div>
@@ -325,14 +325,14 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                     <span className={`inline-block text-xs font-bold px-2 py-0.5 rounded-full border ${getStatusStyle(req.status)}`}>
                       {req.status}
                     </span>
-                    <div className="text-xs font-mono text-slate-400 mt-1">
+                    <div className="text-xs font-mono text-muted mt-1">
                       {req.start_date} → {req.end_date} ({req.days}d)
                     </div>
                   </div>
                 </div>
 
-                <div className="text-[11px] text-slate-300 bg-slate-950/60 rounded-xl p-2.5 border border-slate-800/60">
-                  <span className="text-xs uppercase text-slate-500 font-bold">Reason:</span>
+                <div className="text-[11px] text-body bg-inset/60 rounded-xl p-2.5 border border-hairline/60">
+                  <span className="text-xs uppercase text-faint font-bold">Reason:</span>
                   <span className="ml-1.5">{req.reason}</span>
                 </div>
 
@@ -357,7 +357,7 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
                       </button>
                     </>
                   )}
-                  <span className="text-xs text-slate-500 ml-auto">Created: {new Date(req.created_at).toLocaleDateString('en-IN')}</span>
+                  <span className="text-xs text-faint ml-auto">Created: {new Date(req.created_at).toLocaleDateString('en-IN')}</span>
                 </div>
               </div>
             ))
@@ -366,20 +366,20 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
       </div>
 
       {/* Overtime Ledger Section */}
-      <div className="rounded-2xl border border-slate-800/90 bg-[#0d1322] p-4 space-y-3 shadow-lg">
+      <div className="rounded-2xl border border-hairline/90 bg-panel p-4 space-y-3 shadow-lg">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-amber-400" />
+          <h3 className="text-sm font-extrabold text-ink flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-warn" />
             Overtime Ledger
           </h3>
-          <span className="text-xs font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+          <span className="text-xs font-mono text-warn bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
             {otTotal} records
           </span>
         </div>
 
-        <div className="rounded-xl overflow-hidden border border-slate-800/60">
+        <div className="rounded-xl overflow-hidden border border-hairline/60">
           <table className="w-full text-[11px] text-left">
-            <thead className="bg-slate-900/80 text-xs uppercase text-slate-400 font-bold tracking-wider">
+            <thead className="bg-elevated/80 text-xs uppercase text-muted font-bold tracking-wider">
               <tr>
                 <th className="px-3 py-2">Employee</th>
                 <th className="px-3 py-2">Dept</th>
@@ -393,33 +393,33 @@ export const LeaveOvertimePreviewModule: React.FC = () => {
             <tbody>
               {loadingOt ? (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-slate-500">Loading overtime data...</td>
+                  <td colSpan={7} className="py-4 text-center text-faint">Loading overtime data...</td>
                 </tr>
               ) : overtimeData.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-4 text-center text-slate-500">No overtime records found.</td>
+                  <td colSpan={7} className="py-4 text-center text-faint">No overtime records found.</td>
                 </tr>
               ) : (
                 overtimeData.map((record: any) => (
-                  <tr key={record.id} className="border-t border-slate-800/40 hover:bg-slate-800/30 transition">
-                    <td className="px-3 py-2 font-semibold text-white truncate max-w-[120px]">
+                  <tr key={record.id} className="border-t border-hairline/40 hover:bg-control/30 transition">
+                    <td className="px-3 py-2 font-semibold text-ink truncate max-w-[120px]">
                       {record.full_name}
-                      <span className="text-[11px] text-slate-500 ml-1 font-mono">{record.emp_code}</span>
+                      <span className="text-[11px] text-faint ml-1 font-mono">{record.emp_code}</span>
                     </td>
-                    <td className="px-3 py-2 text-slate-400 truncate">{record.department}</td>
-                    <td className="px-3 py-2 text-sky-400 font-mono">{record.shift_id}</td>
+                    <td className="px-3 py-2 text-muted truncate">{record.department}</td>
+                    <td className="px-3 py-2 text-info font-mono">{record.shift_id}</td>
                     <td className="px-3 py-2">
                       <span className={`inline-block text-[11px] font-bold px-1.5 py-0.5 rounded-full border ${
-                        record.status === 'CHECKED_OUT' ? 'bg-sky-500/15 text-sky-300 border-sky-500/30' :
-                        record.status === 'PRESENT' || record.status === 'LATE' ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' :
-                        'bg-amber-500/15 text-amber-300 border-amber-500/30'
+                        record.status === 'CHECKED_OUT' ? 'bg-sky-500/15 text-info-soft border-sky-500/30' :
+                        record.status === 'PRESENT' || record.status === 'LATE' ? 'bg-emerald-500/15 text-accent-soft border-emerald-500/30' :
+                        'bg-amber-500/15 text-warn-soft border-amber-500/30'
                       }`}>
                         {record.status?.replace(/_/g, ' ')}
                       </span>
                     </td>
-                    <td className="px-3 py-2 font-mono text-white font-bold">{record.work_hours}h</td>
-                    <td className="px-3 py-2 font-mono text-amber-400 font-bold">+{record.overtime_hours || 0}h</td>
-                    <td className="px-3 py-2 font-mono text-rose-400">{record.late_minutes || 0}</td>
+                    <td className="px-3 py-2 font-mono text-ink font-bold">{record.work_hours}h</td>
+                    <td className="px-3 py-2 font-mono text-warn font-bold">+{record.overtime_hours || 0}h</td>
+                    <td className="px-3 py-2 font-mono text-danger">{record.late_minutes || 0}</td>
                   </tr>
                 ))
               )}

@@ -78,22 +78,22 @@ function computePayroll(emp: any, attendance: any) {
 }
 
 // Batch payroll for all employees for a given month
-payrollRouter.get('/batch', (req, res) => {
+payrollRouter.get('/batch', async (req, res) => {
   try {
     const monthStr = String(req.query.month || ''); // YYYY-MM
     const limit = Math.min(Number(req.query.limit || 100), 500);
 
-    const employees = db.prepare('SELECT * FROM employees WHERE status = ? ORDER BY emp_code ASC LIMIT ?').all('ACTIVE', limit);
+    const employees = await db.all('SELECT * FROM employees WHERE status = ? ORDER BY emp_code ASC LIMIT ?', 'ACTIVE', limit);
 
-    const payrollResults = employees.map((emp: any) => {
+    const payrollResults = await Promise.all(employees.map(async (emp: any) => {
       // Fetch attendance for this employee for the month
       const attQuery = monthStr
         ? `SELECT SUM(CASE WHEN status IN ('PRESENT','LATE','CHECKED_OUT') THEN 1 ELSE 0 END) as present_days, SUM(CASE WHEN status='ON_LEAVE' THEN 1 ELSE 0 END) as leave_days, SUM(CASE WHEN status='NOT_CHECKED_IN' THEN 1 ELSE 0 END) as absent_days, SUM(overtime_hours) as overtime_hours, SUM(late_minutes) as late_minutes FROM attendance_logs WHERE employee_id = ? AND date LIKE ?`
         : `SELECT SUM(CASE WHEN status IN ('PRESENT','LATE','CHECKED_OUT') THEN 1 ELSE 0 END) as present_days, SUM(CASE WHEN status='ON_LEAVE' THEN 1 ELSE 0 END) as leave_days, SUM(CASE WHEN status='NOT_CHECKED_IN' THEN 1 ELSE 0 END) as absent_days, SUM(overtime_hours) as overtime_hours, SUM(late_minutes) as late_minutes FROM attendance_logs WHERE employee_id = ?`;
       const attParams = monthStr ? [emp.id, `${monthStr}%`] : [emp.id];
-      const attRow = db.prepare(attQuery).get(...attParams) as any || {};
+      const attRow = (await db.get(attQuery, ...attParams)) as any || {};
       return computePayroll(emp, attRow);
-    });
+    }));
 
     const totalPayroll = payrollResults.reduce((sum, r) => sum + r.net_salary, 0);
 
@@ -110,19 +110,19 @@ payrollRouter.get('/batch', (req, res) => {
 });
 
 // Single employee payslip
-payrollRouter.get('/payslip/:employeeId', (req, res) => {
+payrollRouter.get('/payslip/:employeeId', async (req, res) => {
   try {
     const employeeId = Number(req.params.employeeId);
     const monthStr = String(req.query.month || '');
 
-    const emp = db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId) as any;
+    const emp = await db.get('SELECT * FROM employees WHERE id = ?', employeeId) as any;
     if (!emp) return res.status(404).json({ error: 'Employee not found' });
 
     const attQuery = monthStr
       ? `SELECT SUM(CASE WHEN status IN ('PRESENT','LATE','CHECKED_OUT') THEN 1 ELSE 0 END) as present_days, SUM(CASE WHEN status='ON_LEAVE' THEN 1 ELSE 0 END) as leave_days, SUM(CASE WHEN status='NOT_CHECKED_IN' THEN 1 ELSE 0 END) as absent_days, SUM(overtime_hours) as overtime_hours, SUM(late_minutes) as late_minutes FROM attendance_logs WHERE employee_id = ? AND date LIKE ?`
       : `SELECT SUM(CASE WHEN status IN ('PRESENT','LATE','CHECKED_OUT') THEN 1 ELSE 0 END) as present_days, SUM(CASE WHEN status='ON_LEAVE' THEN 1 ELSE 0 END) as leave_days, SUM(CASE WHEN status='NOT_CHECKED_IN' THEN 1 ELSE 0 END) as absent_days, SUM(overtime_hours) as overtime_hours, SUM(late_minutes) as late_minutes FROM attendance_logs WHERE employee_id = ?`;
     const attParams = monthStr ? [employeeId, `${monthStr}%`] : [employeeId];
-    const attRow = db.prepare(attQuery).get(...attParams) as any || {};
+    const attRow = await db.get(attQuery, ...attParams) as any || {};
 
     const payslip = computePayroll(emp, attRow);
     res.json({ success: true, payslip });
@@ -133,17 +133,17 @@ payrollRouter.get('/payslip/:employeeId', (req, res) => {
 });
 
 // Monthly payroll summary by department
-payrollRouter.get('/monthly-summary', (req, res) => {
+payrollRouter.get('/monthly-summary', async (req, res) => {
   try {
     const monthStr = String(req.query.month || '');
     const department = String(req.query.department || '').trim();
 
-    const employees = db.prepare('SELECT * FROM employees WHERE status = ?').all('ACTIVE') as any[];
-    const results = employees.map((emp) => {
+    const employees = await db.all('SELECT * FROM employees WHERE status = ?', 'ACTIVE') as any[];
+    const results = await Promise.all(employees.map(async (emp) => {
       const attQuery = monthStr ? `SELECT SUM(CASE WHEN status IN ('PRESENT','LATE','CHECKED_OUT') THEN 1 ELSE 0 END) as present_days, SUM(CASE WHEN status='ON_LEAVE' THEN 1 ELSE 0 END) as leave_days, SUM(overtime_hours) as overtime_hours FROM attendance_logs WHERE employee_id = ? AND date LIKE ?` : `SELECT SUM(CASE WHEN status IN ('PRESENT','LATE','CHECKED_OUT') THEN 1 ELSE 0 END) as present_days, SUM(CASE WHEN status='ON_LEAVE' THEN 1 ELSE 0 END) as leave_days, SUM(overtime_hours) as overtime_hours FROM attendance_logs WHERE employee_id = ?`;
-      const attRow = db.prepare(attQuery).get(...(monthStr ? [emp.id, `${monthStr}%`] : [emp.id])) as any || {};
+      const attRow = (await db.get(attQuery, ...(monthStr ? [emp.id, `${monthStr}%`] : [emp.id]))) as any || {};
       return { ...computePayroll(emp, attRow), month: monthStr || 'current' };
-    });
+    }));
 
     // Filter by department if requested
     const filtered = department && department !== 'ALL' ? results.filter((r) => r.employee.department === department) : results;

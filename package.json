@@ -6,30 +6,45 @@
   "description": "Zero-Cost Mobile & Tablet Responsive Biometric Face Recognition Attendance, Leave, Overtime, Reports & Payroll App for 15 Employees",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
-    "build": "vite build",
+    "build": "node scripts/copy-face-models.mjs && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
-    "server": "tsx server/index.ts"
+    "server": "node scripts/copy-face-models.mjs && tsx server/index.ts",
+    "db:list": "node scripts/db-admin.mjs list",
+    "db:delete": "node scripts/db-admin.mjs delete",
+    "db:keep": "node scripts/db-admin.mjs keep",
+    "db:delete-all": "node scripts/db-admin.mjs delete-all",
+    "db:offboard": "node scripts/db-admin.mjs offboard",
+    "db:reset-demo": "node scripts/db-admin.mjs reset-demo",
+    "start": "npm run server",
+    "test:api": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
     "better-sqlite3": "^12.8.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",
     "lucide-react": "^1.16.0",
+    "pg": "^8.23.1",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tsx": "^4.20.3"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.10",
     "@tailwindcss/vite": "^4.1.11",
     "@types/better-sqlite3": "^7.6.13",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
+    "@types/pg": "^8.23.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
     "concurrently": "^9.2.0",
     "tailwindcss": "^4.1.11",
-    "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vite": "^7.0.4"
+  },
+  "engines": {
+    "node": ">=20 <23"
   }
 }

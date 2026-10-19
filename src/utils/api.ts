@@ -11,6 +11,24 @@ import {
 // backend origin (e.g. https://api.example.com) for direct-to-backend deploys.
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '';
 
+export interface ServerVersion {
+  buildId: string;
+  startedAt: string;
+  dbPath: string;
+  cwd: string;
+  staffCount: number;
+  dbEngine?: string;
+  dbPersistent?: boolean;
+  hosting?: string;
+}
+
+/** Which backend instance is answering (used to spot stale previews). */
+export async function fetchServerVersion(): Promise<ServerVersion> {
+  const res = await fetch(`${API_BASE}/api/version`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to load server version');
+  return res.json();
+}
+
 export async function fetchDashboardSummary(): Promise<DashboardSummaryResponse> {
   const res = await fetch(`${API_BASE}/api/dashboard/summary`);
   if (!res.ok) throw new Error('Failed to load dashboard summary');
@@ -23,11 +41,17 @@ export async function fetchEmployees(params: {
   shift?: string;
   todayStatus?: string;
   faceEnrolled?: string;
+  status?: 'ACTIVE' | 'RESIGNED' | 'ALL';
   limit?: number;
   offset?: number;
 }): Promise<{
   total: number;
-  stats?: { totalActive: number; enrolledCount: number; pendingCount: number };
+  stats?: {
+    totalActive: number;
+    enrolledCount: number;
+    pendingCount: number;
+    resignedCount: number;
+  };
   employees: EmployeeRecord[];
 }> {
   const qs = new URLSearchParams();
@@ -36,6 +60,7 @@ export async function fetchEmployees(params: {
   if (params.shift) qs.set('shift', params.shift);
   if (params.todayStatus) qs.set('todayStatus', params.todayStatus);
   if (params.faceEnrolled) qs.set('faceEnrolled', params.faceEnrolled);
+  if (params.status) qs.set('status', params.status);
   if (params.limit !== undefined) qs.set('limit', String(params.limit));
   if (params.offset !== undefined) qs.set('offset', String(params.offset));
 
@@ -72,6 +97,7 @@ export async function createEmployee(payload: {
   shift_id: string;
   phone: string;
   email?: string;
+  username?: string;
   base_salary: number;
   hourly_ot_rate: number;
   joining_date?: string;
@@ -81,7 +107,7 @@ export async function createEmployee(payload: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error('Failed to create employee');
+  if (!res.ok) await throwApiError(res, 'Failed to create employee');
   return res.json();
 }
 
@@ -94,6 +120,7 @@ export async function updateEmployee(
     shift_id: string;
     phone: string;
     email: string;
+    username: string;
     base_salary: number;
     hourly_ot_rate: number;
   }>
@@ -103,7 +130,58 @@ export async function updateEmployee(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error('Failed to update employee');
+  if (!res.ok) await throwApiError(res, 'Failed to update employee');
+  return res.json();
+}
+
+/**
+ * Offboard an employee who has resigned / left the company. This is a soft
+ * removal: attendance, leave and payroll history is retained, biometrics are
+ * wiped and the person drops out of the active directory and camera matching.
+ */
+export async function removeEmployee(
+  employeeId: number,
+  payload: {
+    separation_date?: string;
+    separation_reason?: string;
+    /** Erase the employee row and all attendance/leave/punch history. Irreversible. */
+    permanent?: boolean;
+  } = {}
+): Promise<{ success: boolean; permanent?: boolean; message: string; employee: EmployeeRecord }> {
+  const { permanent = false, ...body } = payload;
+  const qs = permanent ? '?permanent=true' : '';
+  const res = await fetch(`${API_BASE}/api/employees/${employeeId}${qs}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) await throwApiError(res, 'Failed to remove employee');
+  return res.json();
+}
+
+/** Permanently delete several employees at once (rows + their history). */
+export async function bulkDeleteEmployees(payload: {
+  ids?: number[];
+  keepIds?: number[];
+  includeFormer?: boolean;
+}): Promise<{ success: boolean; deleted: number; message: string; deletedIds: number[] }> {
+  const res = await fetch(`${API_BASE}/api/employees/bulk-delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) await throwApiError(res, 'Failed to delete employees');
+  return res.json();
+}
+
+/** Undo an offboarding — bring a former employee back onto the active roster. */
+export async function restoreEmployee(
+  employeeId: number
+): Promise<{ success: boolean; message: string; employee: EmployeeRecord }> {
+  const res = await fetch(`${API_BASE}/api/employees/${employeeId}/restore`, {
+    method: 'POST',
+  });
+  if (!res.ok) await throwApiError(res, 'Failed to restore employee');
   return res.json();
 }
 
@@ -131,13 +209,12 @@ export async function enrollEmployeeFace(
   return res.json();
 }
 
-export async function matchEmployeeFace(params: {
-  descriptor?: number[];
-  preferredEmployeeId?: number | null;
-}): Promise<{
+export async function matchEmployeeFace(params: { descriptor: number[] }): Promise<{
   matched: boolean;
   confidence: number;
   employee: EmployeeRecord | null;
+  reason?: string;
+  message?: string;
 }> {
   const res = await fetch(`${API_BASE}/api/employees/match-face`, {
     method: 'POST',
@@ -146,6 +223,17 @@ export async function matchEmployeeFace(params: {
   });
   if (!res.ok) throw new Error('Failed to match face');
   return res.json();
+}
+
+async function throwApiError(res: Response, fallback: string): Promise<never> {
+  let message = fallback;
+  try {
+    const body = await res.json();
+    if (body?.error) message = String(body.error);
+  } catch {
+    /* non-JSON error body */
+  }
+  throw new Error(message);
 }
 
 export async function recordBiometricPunch(params: {
@@ -162,7 +250,7 @@ export async function recordBiometricPunch(params: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
-  if (!res.ok) throw new Error('Failed to record attendance punch');
+  if (!res.ok) await throwApiError(res, 'Failed to record attendance punch');
   return res.json();
 }
 

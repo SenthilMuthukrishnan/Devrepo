@@ -41,8 +41,10 @@ export function analyzeVideoFrame(video: HTMLVideoElement): FrameAnalysisResult 
   let centerLuma = 0;
   let varianceSum = 0;
 
-  const gridX = 4;
-  const gridY = 4;
+  // 8x8 = 64 cells across the face zone: enough spatial detail to tell people
+  // apart, unlike the previous 4x4 grid.
+  const gridX = 8;
+  const gridY = 8;
   const startX = Math.floor(width * 0.2);
   const startY = Math.floor(height * 0.15);
   const cellW = Math.floor((width * 0.6) / gridX);
@@ -73,14 +75,24 @@ export function analyzeVideoFrame(video: HTMLVideoElement): FrameAnalysisResult 
     }
   }
 
-  const avgCenterLuma = centerLuma / 16;
+  const cellCount = gridX * gridY;
+  const avgCenterLuma = centerLuma / cellCount;
   for (const v of descriptor) {
     varianceSum += Math.abs(v - avgCenterLuma);
   }
 
-  // Normalize vector
-  const mag = Math.sqrt(norm) || 1;
-  const normalizedDescriptor = descriptor.map((v) => Number((v / mag).toFixed(4)));
+  // Z-score the grid (mean 0, unit variance). Cosine similarity on z-scored
+  // vectors is the Pearson correlation, which ignores overall brightness and
+  // exposure — essential because the same face looks very different under a
+  // desk lamp vs. a window.
+  const mean = descriptor.reduce((acc, v) => acc + v, 0) / cellCount;
+  let variance = 0;
+  for (const v of descriptor) variance += (v - mean) ** 2;
+  const stdDev = Math.sqrt(variance / cellCount) || 1;
+
+  const normalizedDescriptor = descriptor.map((v) =>
+    Number(((v - mean) / stdDev).toFixed(4))
+  );
 
   totalLuma = Math.round(avgCenterLuma * 100);
   const hasTexture = varianceSum > 0.18 && totalLuma > 12 && totalLuma < 96;

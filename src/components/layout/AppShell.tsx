@@ -2,13 +2,15 @@ import React, { useEffect, useState } from 'react';
 import {
   BarChart3,
   CalendarClock,
-  Home,
   Layers,
+  Moon,
   ScanFace,
+  Sun,
   Users,
   Wallet,
 } from 'lucide-react';
 import { AppModuleId } from '../../types';
+import { useTheme } from '../../utils/theme';
 
 interface AppShellProps {
   activeModule: AppModuleId;
@@ -37,6 +39,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   children,
 }) => {
   const [clock, setClock] = useState('');
+  const { toggleTheme, isDark } = useTheme();
 
   useEffect(() => {
     const update = () => {
@@ -55,9 +58,9 @@ export const AppShell: React.FC<AppShellProps> = ({
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#070b14] text-slate-100 flex">
+    <div className="min-h-screen bg-app text-ink-soft flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-56 shrink-0 border-r border-slate-800/70 bg-[#0a0f1c] sticky top-0 h-screen">
+      <aside className="hidden md:flex flex-col w-56 shrink-0 border-r border-hairline/70 bg-nav sticky top-0 h-screen">
         <button
           onClick={() => onSelectModule('home')}
           className="flex items-center gap-2.5 px-5 py-5 cursor-pointer"
@@ -66,10 +69,10 @@ export const AppShell: React.FC<AppShellProps> = ({
             <ScanFace className="w-5 h-5" />
           </div>
           <div className="text-left">
-            <div className="font-extrabold text-white tracking-tight leading-none">
-              BioPulse <span className="text-emerald-400">15</span>
+            <div className="font-extrabold text-ink tracking-tight leading-none">
+              BioPulse <span className="text-accent">15</span>
             </div>
-            <div className="text-[10px] text-slate-500 mt-1">Biometric Attendance</div>
+            <div className="text-[10px] text-faint mt-1">Biometric Attendance</div>
           </div>
         </button>
 
@@ -84,17 +87,17 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onClick={() => onSelectModule(item.id)}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition cursor-pointer ${
                   active
-                    ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-800/60 border border-transparent'
+                    ? 'bg-emerald-500/15 text-accent-soft border border-emerald-500/30'
+                    : 'text-muted hover:text-ink hover:bg-control/60 border border-transparent'
                 }`}
               >
-                <Icon className={`w-4 h-4 ${active ? 'text-emerald-400' : ''}`} />
+                <Icon className={`w-4 h-4 ${active ? 'text-accent' : ''}`} />
                 <span className="flex-1 text-left">{item.label}</span>
                 <span
                   className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded ${
                     active
-                      ? 'bg-emerald-500/20 text-emerald-300'
-                      : 'bg-slate-800 text-slate-500'
+                      ? 'bg-emerald-500/20 text-accent-soft'
+                      : 'bg-control text-faint'
                   }`}
                 >
                   {item.badge}
@@ -104,44 +107,86 @@ export const AppShell: React.FC<AppShellProps> = ({
           })}
         </nav>
 
-        <div className="px-3 pb-4">
+        <div className="px-3 pb-4 space-y-2">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+            aria-pressed={!isDark}
+            title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+            className="w-full inline-flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-xs font-bold bg-control hover:bg-control-hover text-ink-soft border border-hairline-strong transition cursor-pointer"
+          >
+            <span className="inline-flex items-center gap-2">
+              {isDark ? (
+                <Sun className="w-3.5 h-3.5 text-warn" />
+              ) : (
+                <Moon className="w-3.5 h-3.5 text-info" />
+              )}
+              <span>{isDark ? 'Light mode' : 'Dark mode'}</span>
+            </span>
+            <span
+              className={`relative w-9 h-5 rounded-full transition-colors ${
+                isDark ? 'bg-control-hover' : 'bg-emerald-500'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-panel shadow transition-all ${
+                  isDark ? 'left-0.5' : 'left-[18px]'
+                }`}
+              />
+            </span>
+          </button>
+
           <button
             type="button"
             onClick={onOpenRoadmap}
-            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
+            className="w-full inline-flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-xs font-bold bg-control hover:bg-control-hover text-ink-soft border border-hairline-strong transition cursor-pointer"
           >
-            <Layers className="w-3.5 h-3.5 text-emerald-400" />
+            <Layers className="w-3.5 h-3.5 text-accent" />
             <span>Module Roadmap</span>
           </button>
-          <p className="text-[10px] text-slate-600 text-center mt-3">15 Staff • v1.0</p>
+          <p className="text-[10px] text-faint text-center mt-3">15 Staff • v1.0</p>
         </div>
       </aside>
 
       {/* Main column */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header */}
-        <header className="sticky top-0 z-40 w-full bg-[#0a0f1c]/95 backdrop-blur-md border-b border-slate-800/70 px-4 py-3 flex items-center justify-between shrink-0">
+        <header className="sticky top-0 z-40 w-full bg-nav/95 backdrop-blur-md border-b border-hairline/70 px-4 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2.5 md:hidden">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center text-slate-950">
               <ScanFace className="w-4 h-4" />
             </div>
-            <span className="font-extrabold text-white tracking-tight">
-              BioPulse <span className="text-emerald-400">15</span>
+            <span className="font-extrabold text-ink tracking-tight">
+              BioPulse <span className="text-accent">15</span>
             </span>
           </div>
-          <div className="hidden md:block text-xs text-slate-400">
+          <div className="hidden md:block text-xs text-muted">
             {NAV_ITEMS.find((n) => n.id === activeModule)?.label}
           </div>
           <div className="flex items-center gap-2">
-            <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800 text-[11px] font-mono font-bold text-emerald-400 tabular-nums">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+              title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
+              className="p-2 rounded-xl border bg-control hover:bg-control-hover text-ink-soft border-hairline-strong transition cursor-pointer"
+            >
+              {isDark ? (
+                <Sun className="w-4 h-4 text-warn" />
+              ) : (
+                <Moon className="w-4 h-4 text-info" />
+              )}
+            </button>
+            <span className="px-2.5 py-1 rounded-lg bg-elevated border border-hairline text-[11px] font-mono font-bold text-accent tabular-nums">
               {clock}
             </span>
             <button
               type="button"
               onClick={onOpenRoadmap}
-              className="md:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer"
+              className="md:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-control hover:bg-control-hover text-ink-soft border border-hairline-strong transition cursor-pointer"
             >
-              <Layers className="w-3.5 h-3.5 text-emerald-400" />
+              <Layers className="w-3.5 h-3.5 text-accent" />
               <span>Modules</span>
             </button>
           </div>
@@ -153,7 +198,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0a0f1c]/95 backdrop-blur-xl border-t border-slate-800/90 px-1.5 py-2 grid grid-cols-5 gap-1 shadow-[0_-8px_30px_rgba(0,0,0,0.5)]">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-nav/95 backdrop-blur-xl border-t border-hairline/90 px-1.5 py-2 grid grid-cols-5 gap-1 shadow-[0_-8px_30px_rgba(0,0,0,0.5)]">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const active = activeModule === item.id;
@@ -164,11 +209,11 @@ export const AppShell: React.FC<AppShellProps> = ({
                 onClick={() => onSelectModule(item.id)}
                 className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] font-bold transition cursor-pointer ${
                   active
-                    ? 'text-emerald-400 bg-emerald-500/15'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    ? 'text-accent bg-emerald-500/15'
+                    : 'text-muted hover:text-ink-soft hover:bg-control/60'
                 }`}
               >
-                <Icon className={`w-5 h-5 mb-1 ${active ? 'text-emerald-400' : 'text-slate-400'}`} />
+                <Icon className={`w-5 h-5 mb-1 ${active ? 'text-accent' : 'text-muted'}`} />
                 <span className="truncate max-w-full">{item.label}</span>
               </button>
             );

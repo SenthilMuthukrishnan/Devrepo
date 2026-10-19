@@ -10,8 +10,32 @@
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="icon" type="image/svg+xml" href="/icon-192.svg" />
     <title>BioPulse 15 — Biometric Face Attendance & HR Kiosk</title>
+    <script>
+      // Apply the saved theme before first paint to avoid a flash of the
+      // wrong palette. Falls back to the OS-level preference.
+      (function () {
+        try {
+          var stored = localStorage.getItem('biopulse-theme');
+          var theme =
+            stored === 'light' || stored === 'dark'
+              ? stored
+              : window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches
+                ? 'light'
+                : 'dark';
+          var root = document.documentElement;
+          root.classList.toggle('dark', theme !== 'light');
+          root.classList.toggle('light', theme === 'light');
+          root.dataset.theme = theme;
+          document
+            .querySelector('meta[name="theme-color"]')
+            .setAttribute('content', theme === 'light' ? '#eef2f7' : '#090d16');
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
   </head>
-  <body class="bg-[#090d16] text-slate-100 antialiased selection:bg-emerald-500/30 selection:text-emerald-200">
+  <body class="antialiased selection:bg-emerald-500/30 selection:text-emerald-700 dark:selection:text-emerald-200">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

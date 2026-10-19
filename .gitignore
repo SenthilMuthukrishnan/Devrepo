@@ -3,8 +3,12 @@ dist/
 build/
 .vite/
 *.db
+data/
 *.db-shm
 *.db-wal
 *.sqlite
 .DS_Store
 .env
+
+# Model weights are copied from node_modules at build time
+public/models/
