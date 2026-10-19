@@ -11,6 +11,21 @@ import {
 // backend origin (e.g. https://api.example.com) for direct-to-backend deploys.
 const API_BASE = (import.meta as any).env?.VITE_API_BASE_URL || '';
 
+export interface ServerVersion {
+  buildId: string;
+  startedAt: string;
+  dbPath: string;
+  cwd: string;
+  staffCount: number;
+}
+
+/** Which backend instance is answering (used to spot stale previews). */
+export async function fetchServerVersion(): Promise<ServerVersion> {
+  const res = await fetch(`${API_BASE}/api/version`, { cache: 'no-store' });
+  if (!res.ok) throw new Error('Failed to load server version');
+  return res.json();
+}
+
 export async function fetchDashboardSummary(): Promise<DashboardSummaryResponse> {
   const res = await fetch(`${API_BASE}/api/dashboard/summary`);
   if (!res.ok) throw new Error('Failed to load dashboard summary');

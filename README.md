@@ -56,6 +56,13 @@ API: `POST /api/employees/bulk-delete` with `{ "ids": [1,2] }` or
 
 > This preview sandbox keeps `data/` across server restarts, so deletions now stick. On a host with a persistent disk/volume (Railway, Render, Fly.io) set `DB_PATH` to the mounted path.
 
+### Which instance am I looking at?
+If the screen shows a different roster from the database, you are on a **different server** (an old preview tab, or a deployed instance). Verify with either:
+- `GET /api/version` → `{ buildId, startedAt, dbPath, cwd, staffCount }`
+- The small grey line at the top of the **Staff** tab: `build … · server … · db … · N staff in database`. It also has a **Refresh** button.
+
+API responses are sent with `Cache-Control: no-store`, and `index.html` with `no-cache`, so a normal reload always shows current data.
+
 ## Employee Usernames
 Every employee has a unique login handle (e.g. `ayaan.rao`), shown as `@username` on their card and profile.
 - The **Add Staff** form has a required **Username** field with a one-click suggestion derived from the full name; letters, numbers, `.`, `-` and `_` are allowed.

@@ -3,6 +3,7 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { initDatabase } from './db';
+import { db } from './db';
 import { dashboardRouter } from './routes/dashboard';
 import { employeesRouter } from './routes/employees';
 import { attendanceRouter } from './routes/attendance';
@@ -17,6 +18,13 @@ export const apiApp = express();
 apiApp.use(cors());
 apiApp.use(express.json({ limit: '10mb' }));
 
+// API responses must never be cached: a stale roster is worse than a slow one.
+apiApp.use('/api', (_req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  next();
+});
+
 apiApp.use('/api/dashboard', dashboardRouter);
 apiApp.use('/api/employees', employeesRouter);
 apiApp.use('/api/attendance', attendanceRouter);
@@ -26,6 +34,39 @@ apiApp.use('/api/payroll', payrollRouter);
 
 apiApp.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', scale: '15-employees', timestamp: new Date().toISOString() });
+});
+
+/**
+ * Identifies exactly which backend instance is answering: useful to tell a
+ * stale preview tab / old deployment apart from the current server.
+ */
+const SERVER_STARTED_AT = new Date().toISOString();
+let BUILD_ID = 'dev';
+try {
+  const distJs = path.resolve(process.cwd(), 'dist');
+  if (fs.existsSync(distJs)) {
+    const files = fs.readdirSync(path.join(distJs, 'assets')).filter((f) => f.endsWith('.js'));
+    BUILD_ID = files[0]?.replace(/^index-|\.js$/g, '') || 'dev';
+  }
+} catch {
+  /* ignore */
+}
+
+apiApp.get('/api/version', (_req, res) => {
+  let staffCount = 0;
+  try {
+    const row = db.prepare('SELECT COUNT(*) as c FROM employees').get() as { c: number };
+    staffCount = row?.c ?? 0;
+  } catch {
+    /* table may not exist yet */
+  }
+  res.json({
+    buildId: BUILD_ID,
+    startedAt: SERVER_STARTED_AT,
+    dbPath: process.env.DB_PATH || path.resolve(process.cwd(), 'data', 'biopulse.db'),
+    cwd: process.cwd(),
+    staffCount,
+  });
 });
 
 // ---------------------------------------------------------------------------

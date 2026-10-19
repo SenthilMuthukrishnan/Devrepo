@@ -13,6 +13,7 @@ import {
   LogOut,
   Phone,
   Plus,
+  RefreshCw,
   RotateCcw,
   ScanFace,
   Search,
@@ -36,6 +37,7 @@ import {
   fetchEmployees,
   recordBiometricPunch,
   removeEmployee,
+  fetchServerVersion,
   resetEmployeeBiometrics,
   restoreEmployee,
   updateEmployee,
@@ -84,6 +86,12 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
     resignedCount: 0,
   });
   const [loading, setLoading] = useState(false);
+  const [serverInfo, setServerInfo] = useState<{
+    buildId: string;
+    startedAt: string;
+    dbPath: string;
+    staffCount: number;
+  } | null>(null);
 
   // Face Enrollment Modal
   const [enrollTarget, setEnrollTarget] = useState<EmployeeRecord | null>(null);
@@ -195,6 +203,12 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
   useEffect(() => {
     setSelectedIds([]);
   }, [employeeStatus]);
+
+  useEffect(() => {
+    fetchServerVersion()
+      .then(setServerInfo)
+      .catch(() => setServerInfo(null));
+  }, []);
 
   const openProfileModal = async (empId: number) => {
     setDetailEmpId(empId);
@@ -453,6 +467,17 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => {
+                loadData(search, department, shiftFilter, enrolledFilter, page, employeeStatus);
+                fetchServerVersion().then(setServerInfo).catch(() => undefined);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold bg-control hover:bg-control-hover text-ink-soft border border-hairline-strong transition cursor-pointer"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
+            <button
+              type="button"
               onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
                 selectMode
@@ -623,6 +648,23 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
           </select>
         </div>
       </div>
+
+      {/* Which backend/instance is serving this page — helps spot a stale preview */}
+      {serverInfo && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[10px] font-mono text-faint">
+          <span className="inline-flex items-center gap-1">
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                serverInfo.staffCount === totalMatched ? 'bg-emerald-400' : 'bg-amber-400'
+              }`}
+            />
+            build {serverInfo.buildId}
+          </span>
+          <span>server {new Date(serverInfo.startedAt).toLocaleTimeString('en-IN', { hour12: false })}</span>
+          <span>db {serverInfo.dbPath.replace(/^\/home\/user\//, '~/')}</span>
+          <span className="text-body">{serverInfo.staffCount} staff in database</span>
+        </div>
+      )}
 
       {/* Bulk selection toolbar */}
       {selectMode && (
