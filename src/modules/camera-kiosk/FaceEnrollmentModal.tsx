@@ -242,7 +242,7 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
                     setSearch(e.target.value);
                     loadEmployees(e.target.value);
                   }}
-                  placeholder="Search EMP0001..EMP0500 or Name..."
+                  placeholder="Search EMP0001..EMP0015 or Name..."
                   className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-900 border border-slate-700/80 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
                 />
               </div>
@@ -267,7 +267,7 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
                       {emp.full_name} ({emp.emp_code})
                     </span>
                     <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded ${
+                      className={`text-xs px-1.5 py-0.5 rounded ${
                         emp.face_enrolled
                           ? 'bg-emerald-500/15 text-emerald-300'
                           : 'bg-amber-500/15 text-amber-300'
@@ -295,7 +295,7 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
                   <div className="text-xs font-bold text-white truncate">
                     {selectedEmp.full_name}
                   </div>
-                  <div className="text-[10px] font-mono text-emerald-400">
+                  <div className="text-xs font-mono text-emerald-400">
                     {selectedEmp.emp_code} • {selectedEmp.department}
                   </div>
                 </div>
@@ -327,10 +327,10 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
                       : 'bg-slate-900/50 border-slate-800 text-slate-500'
                   }`}
                 >
-                  <div className="text-[10px] font-mono font-bold">
+                  <div className="text-xs font-mono font-bold">
                     {done ? '✓ CAPTURED' : `ANGLE ${s.step}/3`}
                   </div>
-                  <div className="text-[10px] font-semibold truncate mt-0.5">{s.title}</div>
+                  <div className="text-xs font-semibold truncate mt-0.5">{s.title}</div>
                 </div>
               );
             })}
@@ -361,7 +361,7 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
               <div className="w-36 h-40 rounded-3xl border-2 border-dashed border-emerald-400/80 relative flex items-center justify-center">
                 <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent animate-scanline" />
               </div>
-              <span className="mt-2 text-[10px] font-mono text-emerald-300 bg-slate-950/90 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+              <span className="mt-2 text-xs font-mono text-emerald-300 bg-slate-950/90 px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                 {angleIndex < 3
                   ? ANGLE_STEPS[angleIndex].hint
                   : 'All 3 Angles Averaged & Enrolled!'}
@@ -372,11 +372,11 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
           {/* 16-D Vector Preview on Completion */}
           {capturedVectorPreview.length > 0 && (
             <div className="p-2.5 rounded-xl bg-slate-950 border border-slate-800 space-y-1">
-              <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400">
+              <div className="flex items-center gap-1.5 text-xs font-mono text-emerald-400">
                 <Cpu className="w-3.5 h-3.5" />
                 <span>16-D NORMALIZED BIOMETRIC DESCRIPTOR SAVED:</span>
               </div>
-              <div className="text-[10px] font-mono text-slate-400 break-all">
+              <div className="text-xs font-mono text-slate-400 break-all">
                 [{capturedVectorPreview.slice(0, 8).join(', ')}, ...]
               </div>
             </div>

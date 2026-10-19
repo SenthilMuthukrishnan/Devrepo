@@ -1,19 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { AppShell } from './components/layout/AppShell';
 import { ModuleRoadmapModal } from './components/layout/ModuleRoadmapModal';
-import { CameraKioskModule } from './modules/camera-kiosk/CameraKioskModule';
 import { EmployeesPreviewModule } from './modules/employees/EmployeesPreviewModule';
 import { HomeModule } from './modules/home/HomeModule';
 import { LeaveOvertimePreviewModule } from './modules/leave-overtime/LeaveOvertimePreviewModule';
 import { PayrollPreviewModule } from './modules/payroll/PayrollPreviewModule';
 import { ReportsPreviewModule } from './modules/reports/ReportsPreviewModule';
-import { AppModuleId, DashboardSummaryResponse, ViewportMode } from './types';
+import { AppModuleId, DashboardSummaryResponse } from './types';
 import { fetchDashboardSummary } from './utils/api';
 
 export function App() {
-  // Open on 'employees' (Module 2) so the user immediately sees the newly built Module 2
-  const [activeModule, setActiveModule] = useState<AppModuleId>('employees');
-  const [viewportMode, setViewportMode] = useState<ViewportMode>('mobile-preview');
+  // Open on 'home' (Module 1: Clean Home Face Scan)
+  const [activeModule, setActiveModule] = useState<AppModuleId>('home');
   const [roadmapOpen, setRoadmapOpen] = useState(false);
   const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
   const [loadingSummary, setLoadingSummary] = useState(true);
@@ -39,22 +37,13 @@ export function App() {
       <AppShell
         activeModule={activeModule}
         onSelectModule={setActiveModule}
-        viewportMode={viewportMode}
-        onChangeViewportMode={setViewportMode}
         onOpenRoadmap={() => setRoadmapOpen(true)}
       >
         {activeModule === 'home' && (
           <HomeModule
-            summary={summary}
             loading={loadingSummary}
             onRefresh={loadSummary}
-            onNavigateModule={setActiveModule}
-            onOpenRoadmap={() => setRoadmapOpen(true)}
           />
-        )}
-
-        {activeModule === 'camera-kiosk' && (
-          <CameraKioskModule onPunchRecorded={loadSummary} />
         )}
 
         {activeModule === 'employees' && (

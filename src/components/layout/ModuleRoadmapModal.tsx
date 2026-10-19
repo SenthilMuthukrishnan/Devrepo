@@ -19,7 +19,7 @@ export const ModuleRoadmapModal: React.FC<ModuleRoadmapModalProps> = ({
     {
       id: 'home' as AppModuleId,
       step: 'Module 1A (Complete)',
-      title: 'Home Dashboard & 500-Employee Real-Time Telemetry',
+      title: 'Home Dashboard & 15-Employee Real-Time Telemetry',
       desc: 'Live attendance KPIs, 8 department breakdowns, 4 shift statuses, and live verification feed.',
       status: 'COMPLETED',
     },
@@ -33,7 +33,7 @@ export const ModuleRoadmapModal: React.FC<ModuleRoadmapModalProps> = ({
     {
       id: 'employees' as AppModuleId,
       step: 'Module 2 (Complete)',
-      title: '500-Employee Directory & 3-Angle Face Biometric Registry',
+      title: '15-Employee Directory & 3-Angle Face Biometric Registry',
       desc: 'Full Add/Edit staff management, shift & overtime rate configuration, pending face filter, 16-D vector audit, and 3-angle camera enrollment.',
       status: 'COMPLETED',
     },
@@ -48,7 +48,7 @@ export const ModuleRoadmapModal: React.FC<ModuleRoadmapModalProps> = ({
       id: 'reports' as AppModuleId,
       step: 'Module 4 (Planned)',
       title: 'Reports & Muster Roll Details',
-      desc: 'Daily/Monthly attendance register for 500 employees, late arrival audit, overtime summary, and CSV/PDF export.',
+      desc: 'Daily/Monthly attendance register for all employees, late arrival audit, overtime summary, and CSV/PDF export.',
       status: 'PLANNED',
     },
     {
@@ -70,7 +70,7 @@ export const ModuleRoadmapModal: React.FC<ModuleRoadmapModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-white">
-                Modular Project Architecture (500-Employee Scale)
+                Modular Project Architecture (15-Employee Scale)
               </h3>
               <p className="text-xs text-slate-400">
                 Zero-Cost Android Mobile & Tablet Responsive Build Plan (Modules 1 & 2 Complete)

@@ -102,8 +102,111 @@ export function initDatabase() {
 
   const countRow = db.prepare('SELECT COUNT(*) as count FROM employees').get() as { count: number };
   if (countRow.count === 0) {
-    seed500Employees();
+    seedEmployees();
+    seedMonthlyAttendanceHistory();
   }
+}
+
+// Generate deterministic attendance history (full previous month + current month up to yesterday)
+// so Module 5 payroll has a realistic monthly dataset to compute salary from.
+function seedMonthlyAttendanceHistory() {
+  const employees = db.prepare('SELECT id, emp_code, shift_id FROM employees ORDER BY id ASC').all() as Array<{ id: number; emp_code: string; shift_id: string }>;
+  if (employees.length === 0) return;
+
+  const deterministicRandom = (seed: number) => {
+    const x = Math.sin(seed * 12.9898) * 43758.5453;
+    return x - Math.floor(x);
+  };
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  const now = new Date();
+  const periods: Array<{ year: number; month: number; lastDay: number }> = [];
+
+  // Full previous month
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevLast = new Date(prev.getFullYear(), prev.getMonth() + 1, 0).getDate();
+  periods.push({ year: prev.getFullYear(), month: prev.getMonth(), lastDay: prevLast });
+
+  // Current month up to yesterday (today itself is seeded live by seedEmployees)
+  if (now.getDate() > 1) {
+    periods.push({ year: now.getFullYear(), month: now.getMonth(), lastDay: now.getDate() - 1 });
+  }
+
+  const insertAtt = db.prepare(`
+    INSERT INTO attendance_logs (
+      employee_id, emp_code, date, check_in_time, check_out_time,
+      status, late_minutes, work_hours, overtime_hours, confidence_score,
+      verify_mode, device_label, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+  const insertLeave = db.prepare(`
+    INSERT INTO leave_requests (employee_id, emp_code, leave_type, start_date, end_date, days, reason, status, created_at)
+    VALUES (?, ?, ?, ?, ?, 1, ?, 'APPROVED', ?)
+  `);
+
+  const historyTransaction = db.transaction(() => {
+    for (const period of periods) {
+      for (let day = 1; day <= period.lastDay; day++) {
+        const dateObj = new Date(period.year, period.month, day);
+        if (dateObj.getDay() === 0) continue; // Sunday weekly off
+        const dateStr = `${period.year}-${pad(period.month + 1)}-${pad(day)}`;
+
+        for (let i = 0; i < employees.length; i++) {
+          const emp = employees[i];
+          const empNum = emp.id;
+          const r1 = deterministicRandom(empNum * 31 + day * 7 + period.month);
+          const r2 = deterministicRandom(empNum * 17 + day * 13 + period.month);
+          const r3 = deterministicRandom(empNum * 53 + day * 3 + period.month);
+
+          const isMorning = emp.shift_id === 'MORNING';
+          const checkIn = `${isMorning ? '05:' : '08:'}${pad(50 + Math.floor(r2 * 9))}`;
+
+          if (r1 < 0.045) {
+            // Absent — no check-in recorded
+            insertAtt.run(emp.id, emp.emp_code, dateStr, null, null, 'NOT_CHECKED_IN', 0, 0, 0, 97.5, 'FACE_CAMERA', 'Gate-1 Android Tab Kiosk', `${dateStr}T23:59:00`);
+          } else if (r1 < 0.105) {
+            // Approved leave
+            const leaveTypes = ['CL', 'SL', 'PL'];
+            const lType = leaveTypes[empNum % leaveTypes.length];
+            const reasons = ['Personal family commitment', 'Medical checkup & rest', 'Planned vacation'];
+            insertLeave.run(emp.id, emp.emp_code, lType, dateStr, dateStr, reasons[empNum % reasons.length], `${dateStr}T08:00:00`);
+            insertAtt.run(emp.id, emp.emp_code, dateStr, null, null, 'ON_LEAVE', 0, 0, 0, 100, 'HR_PORTAL', 'HR Leave System', `${dateStr}T08:00:00`);
+          } else {
+            const isLate = r3 < 0.12;
+            const lateMins = isLate ? 8 + Math.floor(r2 * 35) : 0;
+            const checkedOut = r2 > 0.15;
+            const doesOt = empNum % 3 === 0 && r2 > 0.35;
+            const workHours = doesOt ? Number((8.5 + r3 * 3).toFixed(1)) : Number((7.8 + r3 * 0.6).toFixed(1));
+            const otHours = doesOt ? Number((workHours - 8).toFixed(1)) : 0;
+            const status = isLate ? 'LATE' : checkedOut ? 'CHECKED_OUT' : 'PRESENT';
+            const checkOut = checkedOut
+              ? (isMorning
+                  ? `${pad(16 + Math.floor(r3 * 3))}:${pad(10 + Math.floor(r2 * 49))}`
+                  : `${pad(17 + Math.floor(r3 * 4))}:${pad(10 + Math.floor(r2 * 49))}`)
+              : null;
+            insertAtt.run(
+              emp.id,
+              emp.emp_code,
+              dateStr,
+              checkIn,
+              checkOut,
+              status,
+              lateMins,
+              checkedOut ? workHours : 0,
+              checkedOut ? otHours : 0,
+              Number((96 + r2 * 3.4).toFixed(1)),
+              'FACE_CAMERA',
+              empNum % 2 === 0 ? 'Gate-1 Android Tab Kiosk' : 'Mobile App Biometric Cam',
+              `${dateStr}T${checkOut || '17:30'}:00`
+            );
+          }
+        }
+      }
+    }
+  });
+
+  historyTransaction();
 }
 
 const FIRST_NAMES = [
@@ -123,7 +226,7 @@ const LAST_NAMES = [
 const DEPARTMENTS = [
   {
     name: 'Production & Manufacturing',
-    count: 145,
+    count: 4,
     shifts: ['MORNING', 'EVENING', 'NIGHT', 'GENERAL'],
     roles: [
       { title: 'CNC Machine Operator', salary: 28000, ot: 175 },
@@ -134,7 +237,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Engineering & R&D',
-    count: 95,
+    count: 3,
     shifts: ['GENERAL', 'MORNING'],
     roles: [
       { title: 'Senior Software Engineer', salary: 85000, ot: 450 },
@@ -145,7 +248,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Quality Assurance',
-    count: 60,
+    count: 1,
     shifts: ['MORNING', 'EVENING', 'GENERAL'],
     roles: [
       { title: 'Quality Inspector', salary: 32000, ot: 195 },
@@ -155,7 +258,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Operations & Logistics',
-    count: 70,
+    count: 2,
     shifts: ['MORNING', 'EVENING', 'GENERAL'],
     roles: [
       { title: 'Warehouse Executive', salary: 26000, ot: 165 },
@@ -165,7 +268,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Sales & Field Marketing',
-    count: 50,
+    count: 1,
     shifts: ['GENERAL'],
     roles: [
       { title: 'Regional Sales Executive', salary: 45000, ot: 260 },
@@ -175,7 +278,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Customer Support',
-    count: 40,
+    count: 1,
     shifts: ['MORNING', 'EVENING', 'NIGHT'],
     roles: [
       { title: 'Technical Support Specialist', salary: 34000, ot: 205 },
@@ -184,7 +287,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'Finance & Accounts',
-    count: 20,
+    count: 1,
     shifts: ['GENERAL'],
     roles: [
       { title: 'Senior Accountant', salary: 52000, ot: 290 },
@@ -193,7 +296,7 @@ const DEPARTMENTS = [
   },
   {
     name: 'HR & Administration',
-    count: 20,
+    count: 2,
     shifts: ['GENERAL'],
     roles: [
       { title: 'HR Operations Specialist', salary: 48000, ot: 280 },
@@ -229,7 +332,7 @@ export function getTodayDateString(): string {
   return `${y}-${m}-${d}`;
 }
 
-function seed500Employees() {
+function seedEmployees() {
   const today = getTodayDateString();
   const insertEmp = db.prepare(`
     INSERT INTO employees (
@@ -305,15 +408,15 @@ function seed500Employees() {
 
         const employeeId = Number(res.lastInsertRowid);
 
-        // Seed realistic today status across the 500 employees:
-        // ~360 checked in (some already checked out with overtime, some currently working),
-        // ~28 on approved leave, ~112 yet to check in (ideal for testing check-in!)
-        const mod = empIndex % 25;
+        // Seed realistic today status across the 15 employees:
+        // ~7 checked out (some with overtime), ~5 working inside,
+        // 1 on approved leave, ~2 yet to check in (ideal for testing check-in!)
+        const mod = empIndex % 12;
         const confidence = Number((96.4 + (empIndex % 35) * 0.1).toFixed(1));
         const device = empIndex % 2 === 0 ? 'Gate-1 Android Tab Kiosk' : 'Mobile App Biometric Cam';
 
         if (mod === 0) {
-          // On Approved Leave today (20 employees)
+          // On Approved Leave today (1 employee)
           const leaveTypes = ['CL', 'SL', 'PL'];
           const lType = leaveTypes[empIndex % leaveTypes.length];
           insertLeave.run(
@@ -340,8 +443,8 @@ function seed500Employees() {
             'HR Leave System',
             `${today}T08:00:00`
           );
-        } else if (mod >= 1 && mod <= 5) {
-          // Completed shift & checked out (with overtime for some!) - 100 employees
+        } else if (mod >= 1 && mod <= 4) {
+          // Completed shift & checked out (with overtime for some!) - 7 employees
           const checkIn = shiftId === 'MORNING' ? '05:56' : '08:54';
           const hasOt = empIndex % 2 === 0;
           const checkOut = shiftId === 'MORNING'
@@ -373,10 +476,10 @@ function seed500Employees() {
               confidence, device, 0, workHours, otHours
             );
           }
-        } else if (mod >= 6 && mod <= 18) {
-          // Currently Checked In (Present inside plant/office) - 260 employees
-          const isLate = mod === 17 || mod === 18;
-          const lateMins = isLate ? 18 + (empIndex % 25) : 0;
+        } else if (mod >= 5 && mod <= 8) {
+          // Currently Checked In (Present inside plant/office) - 4 employees
+          const isLate = mod === 7 || mod === 8;
+          const lateMins = isLate ? 18 + (empIndex % 12) : 0;
           const checkIn = shiftId === 'MORNING'
             ? (isLate ? '06:24' : '05:55')
             : (isLate ? '09:28' : '08:52');
@@ -405,7 +508,7 @@ function seed500Employees() {
             );
           }
         }
-        // mod 19..24 (~120 employees) are not checked in yet today -> ready for immediate Check-In testing!
+        // mod 9..11 (3 employees) are not checked in yet today -> ready for immediate Check-In testing!
 
         empIndex++;
       }

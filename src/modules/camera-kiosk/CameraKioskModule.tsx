@@ -52,7 +52,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
   const [empSearch, setEmpSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
-  const [totalMatchedEmployees, setTotalMatchedEmployees] = useState(500);
+  const [totalMatchedEmployees, setTotalMatchedEmployees] = useState(15);
   const [selectedTestEmployee, setSelectedTestEmployee] = useState<EmployeeRecord | null>(null);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
@@ -98,6 +98,17 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
     }, 900);
     return () => clearInterval(interval);
   }, [cameraActive]);
+
+  // Auto-punch when face is detected (no button required)
+  useEffect(() => {
+    if (!faceDetectedInFrame || scanning || !selectedTestEmployee || !cameraActive) return;
+    const timer = setTimeout(() => {
+      const mode = selectedTestEmployee.today_status === 'PRESENT' || selectedTestEmployee.today_status === 'LATE' ? 'CHECK_OUT' : 'CHECK_IN';
+      setPunchMode(mode);
+      handleTriggerBiometricScan(selectedTestEmployee);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [faceDetectedInFrame, selectedTestEmployee, cameraActive, scanning]);
 
   const startMobileCamera = async (mode: 'user' | 'environment') => {
     stopMobileCamera();
@@ -243,7 +254,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
           </div>
           <div className="min-w-0">
             <h2 className="text-xs font-bold text-white truncate">Face Login / Logout Cam</h2>
-            <p className="text-[10px] text-slate-400 truncate">{cameraStatusMsg}</p>
+            <p className="text-xs text-slate-400 truncate">{cameraStatusMsg}</p>
           </div>
         </div>
 
@@ -379,7 +390,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                         ) : (
                           selectedTestEmployee.avatar_initials
                         )}
-                        <span className="absolute -bottom-2 px-2 py-0.5 rounded-full text-[9px] font-mono bg-slate-950 text-emerald-400 border border-emerald-500/40">
+                        <span className="absolute -bottom-2 px-2 py-0.5 rounded-full text-[11px] font-mono bg-slate-950 text-emerald-400 border border-emerald-500/40">
                           {selectedTestEmployee.emp_code}
                         </span>
                       </div>
@@ -389,7 +400,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                       <div className="text-[11px] text-slate-400">
                         {selectedTestEmployee.designation} • {selectedTestEmployee.department}
                       </div>
-                      <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900/90 border border-slate-700 text-[10px] text-slate-300">
+                      <div className="mt-1.5 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-slate-900/90 border border-slate-700 text-xs text-slate-300">
                         <span>Status:</span>
                         <span
                           className={`font-bold ${
@@ -412,7 +423,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
 
               {/* Biometric Reticle HUD */}
               <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-2.5">
-                <div className="flex items-center justify-between text-[10px] font-mono">
+                <div className="flex items-center justify-between text-xs font-mono">
                   <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-950/80 border border-slate-800 text-emerald-400">
                     <Cpu className="w-3 h-3" />
                     <span>MATCH: {liveConfidence}%</span>
@@ -434,12 +445,12 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                   <div className="absolute inset-x-2 h-0.5 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_12px_#10b981] animate-scanline" />
                 </div>
 
-                <div className="flex items-center justify-between text-[10px] font-mono">
+                <div className="flex items-center justify-between text-xs font-mono">
                   <span className="px-2 py-0.5 rounded bg-slate-950/80 border border-slate-800 text-slate-300">
                     LIVENESS: ON
                   </span>
                   <span className="px-2 py-0.5 rounded bg-slate-950/80 border border-slate-800 text-sky-300">
-                    1:500 DB
+                    1:15 DB
                   </span>
                 </div>
               </div>
@@ -479,31 +490,10 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                 </div>
               )}
 
-              <button
-                type="button"
-                disabled={scanning}
-                onClick={() => handleTriggerBiometricScan(selectedTestEmployee)}
-                className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl text-xs font-bold shadow-lg transition cursor-pointer ${
-                  punchMode === 'CHECK_OUT' ||
-                  (punchMode === 'AUTO' &&
-                    selectedTestEmployee &&
-                    (selectedTestEmployee.today_status === 'PRESENT' ||
-                      selectedTestEmployee.today_status === 'LATE'))
-                    ? 'bg-sky-500 hover:bg-sky-400 text-slate-950 shadow-sky-500/20'
-                    : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/20'
-                }`}
-              >
-                <ScanFace className={`w-4 h-4 ${scanning ? 'animate-spin' : ''}`} />
-                {scanning
-                  ? 'Verifying Face Biometrics...'
-                  : punchMode === 'CHECK_OUT' ||
-                    (punchMode === 'AUTO' &&
-                      selectedTestEmployee &&
-                      (selectedTestEmployee.today_status === 'PRESENT' ||
-                        selectedTestEmployee.today_status === 'LATE'))
-                  ? `Scan Face & Logout (${selectedTestEmployee?.emp_code || ''})`
-                  : `Scan Face & Login (${selectedTestEmployee?.emp_code || ''})`}
-              </button>
+              <div className="text-center text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-3 py-2">
+                <ScanFace className="w-3 h-3 inline mr-1" />
+                Auto-scan active — show your face to punch in or out
+              </div>
             </div>
           </div>
 
@@ -526,17 +516,20 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                   </div>
                   <div className="min-w-0">
                     <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold uppercase ${
                         lastPunchResult.punchType === 'CHECK_IN'
                           ? 'bg-emerald-500 text-slate-950'
                           : 'bg-sky-400 text-slate-950'
                       }`}
                     >
                       <CheckCircle2 className="w-3 h-3" />
-                      {lastPunchResult.punchType === 'CHECK_IN' ? 'CHECKED IN' : 'CHECKED OUT'}
+                      {lastPunchResult.punchType === 'CHECK_IN' ? 'Employee logged in' : 'Employee logged out'}
                     </span>
                     <div className="text-sm font-bold text-white truncate mt-0.5">
                       {lastPunchResult.employee.full_name} ({lastPunchResult.employee.emp_code})
+                    </div>
+                    <div className="text-[11px] font-mono text-emerald-300 mt-0.5">
+                      {currentTimeStr} • {lastPunchResult.punchType === 'CHECK_IN' ? 'Logged In' : 'Logged Out'}
                     </div>
                   </div>
                 </div>
@@ -545,7 +538,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                   <div className="text-base font-mono font-bold text-white tabular-nums">
                     {lastPunchResult.punchTime}
                   </div>
-                  <div className="text-[10px] font-mono text-emerald-400">
+                  <div className="text-xs font-mono text-emerald-400">
                     {lastPunchResult.confidenceScore}% Match
                   </div>
                 </div>
@@ -553,7 +546,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
 
               <div className="grid grid-cols-3 gap-2 pt-2.5 text-center">
                 <div className="p-2 rounded-xl bg-slate-950/70 border border-slate-800/80">
-                  <div className="text-[9px] uppercase text-slate-400">Work Hrs</div>
+                  <div className="text-[11px] uppercase text-slate-400">Work Hrs</div>
                   <div className="text-xs font-mono font-bold text-white mt-0.5">
                     {lastPunchResult.punchType === 'CHECK_OUT'
                       ? `${lastPunchResult.workHours}h`
@@ -561,13 +554,13 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                   </div>
                 </div>
                 <div className="p-2 rounded-xl bg-slate-950/70 border border-slate-800/80">
-                  <div className="text-[9px] uppercase text-slate-400">Overtime</div>
+                  <div className="text-[11px] uppercase text-slate-400">Overtime</div>
                   <div className="text-xs font-mono font-bold text-sky-400 mt-0.5">
                     +{lastPunchResult.overtimeHours}h
                   </div>
                 </div>
                 <div className="p-2 rounded-xl bg-slate-950/70 border border-slate-800/80">
-                  <div className="text-[9px] uppercase text-slate-400">OT Pay</div>
+                  <div className="text-[11px] uppercase text-slate-400">OT Pay</div>
                   <div className="text-xs font-mono font-bold text-emerald-400 mt-0.5">
                     ₹{lastPunchResult.overtimePay}
                   </div>
@@ -577,17 +570,17 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
           )}
         </div>
 
-        {/* 500-Employee Mobile Selector & Live Stream */}
+        {/* 15-Employee Mobile Selector & Live Stream */}
         <div className="@md:col-span-5 space-y-3">
           <div className="rounded-2xl border border-slate-800/90 bg-[#0d1322] p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-emerald-400" />
                 <h3 className="text-xs font-bold text-white">
-                  Test Any of 500 Employees
+                  Test Any of 15 Employees
                 </h3>
               </div>
-              <span className="text-[10px] font-mono text-slate-400">
+              <span className="text-xs font-mono text-slate-400">
                 {totalMatchedEmployees} Staff
               </span>
             </div>
@@ -598,14 +591,14 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                 type="text"
                 value={empSearch}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search EMP0001..EMP0500 or Name..."
+                placeholder="Search EMP0001..EMP0015 or Name..."
                 className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
             </div>
 
             <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
               {[
-                { id: 'ALL', label: 'All (500)' },
+                { id: 'ALL', label: 'All (15)' },
                 { id: 'NOT_CHECKED_IN', label: 'Not In' },
                 { id: 'INSIDE', label: 'Working' },
                 { id: 'CHECKED_OUT', label: 'Out' },
@@ -614,7 +607,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                   key={tab.id}
                   type="button"
                   onClick={() => setStatusFilter(tab.id)}
-                  className={`px-2 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap transition cursor-pointer ${
+                  className={`px-2 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition cursor-pointer ${
                     statusFilter === tab.id
                       ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
                       : 'bg-slate-900 text-slate-400 border border-slate-800'
@@ -653,7 +646,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                           <div className="text-xs font-semibold text-white truncate">
                             {emp.full_name}
                           </div>
-                          <div className="text-[10px] font-mono text-slate-400 truncate">
+                          <div className="text-xs font-mono text-slate-400 truncate">
                             {emp.emp_code} • {emp.shift_id}
                           </div>
                         </div>
@@ -666,7 +659,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                           setSelectedTestEmployee(emp);
                           handleTriggerBiometricScan(emp);
                         }}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition cursor-pointer shrink-0 ${
+                        className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer shrink-0 ${
                           isInside
                             ? 'bg-sky-500 hover:bg-sky-400 text-slate-950'
                             : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950'
@@ -688,7 +681,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                 <Zap className="w-3.5 h-3.5 text-sky-400" />
                 <h3 className="text-xs font-bold text-white">Live Terminal Stream</h3>
               </div>
-              <span className="text-[9px] font-mono text-emerald-400">REAL-TIME</span>
+              <span className="text-[11px] font-mono text-emerald-400">REAL-TIME</span>
             </div>
 
             <div className="space-y-1.5 max-h-44 overflow-y-auto pr-0.5">
@@ -699,9 +692,9 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                 >
                   <div className="truncate">
                     <span className="font-semibold text-white">{p.full_name}</span>{' '}
-                    <span className="text-[10px] font-mono text-slate-400">{p.emp_code}</span>
+                    <span className="text-xs font-mono text-slate-400">{p.emp_code}</span>
                   </div>
-                  <div className="flex items-center gap-1.5 shrink-0 font-mono text-[10px]">
+                  <div className="flex items-center gap-1.5 shrink-0 font-mono text-xs">
                     <span
                       className={
                         p.punch_type === 'CHECK_IN' ? 'text-emerald-400 font-bold' : 'text-sky-400 font-bold'
