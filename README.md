@@ -132,6 +132,42 @@ The frontend is a static Vite/React build (deployed on Vercel). The backend (**E
 
 The Express service also serves the production build: when a `dist/` folder exists, `npm run build && npm run server` hosts the UI **and** the API on a single port (`http://localhost:3001`). API-only deployments without `dist/` behave exactly as before.
 
+## Database engines: Postgres in production, SQLite locally
+
+The data layer picks its engine from the environment — no code changes:
+
+| `DATABASE_URL` | Engine | Use |
+|---|---|---|
+| `postgresql://…` (Neon, Supabase, Render PG) | **Postgres** | Production. Durable across deploys, restarts and multiple instances. |
+| unset | SQLite file (`data/biopulse.db`) | Local development, single-file installs |
+| `pglite://memory` | Embedded Postgres | Test harness (`npm run test:api`) |
+
+On first boot with Postgres the schema is created automatically (`employees`, `attendance_logs`, `punch_events`, `leave_requests`, `app_meta` + indexes). Existing SQLite data is **not** migrated automatically — copy it across with SQL if you need the old rows.
+
+```bash
+# Neon/Render → Environment → add
+DATABASE_URL=postgresql://user:password@ep-xxx.aws.neon.tech/biopulse?sslmode=require
+```
+
+**Render settings**
+- Build command: `npm install && npm run build`
+- Start command: `npm start`
+- Environment: `DATABASE_URL=…` (and `NODE_VERSION=20`)
+
+Verify which engine is live: `GET /api/version` returns `dbEngine: "postgres"` and `dbPath` (credentials redacted). The Staff tab shows the same line, plus an “ephemeral DB” badge if the API is on a SQLite file inside a container.
+
+### Verify a deployment
+
+```bash
+npm run test:api -- https://your-service.onrender.com
+```
+
+Runs 19 checks (create/update/delete employee, face enroll + match, punch in/out, duplicate punch rejection, leave, dashboard, payroll, reports) and cleans up after itself. Point it at a staging instance, not live data.
+
+### The SQLite admin CLI
+
+`npm run db:list` / `db:delete` / `db:keep` operate on a **local SQLite file** and do not speak Postgres. On Neon use the Neon SQL editor, or the Staff tab (bulk delete) in the app.
+
 ## Deployment: where the database actually lives
 
 The API stores everything in **one SQLite file** (`data/biopulse.db` unless `DB_PATH` says otherwise). That is fine locally, but on a hosting platform it matters where that file sits:
@@ -141,7 +177,7 @@ The API stores everything in **one SQLite file** (`data/biopulse.db` unless `DB_
 | Local machine | Yes — a normal file on disk |
 | Render / Railway / Fly **without** a mounted disk | **No.** The container is rebuilt from the repo on every deploy, so `data/biopulse.db` is recreated empty. Free instances also sleep and restart. |
 | Render **with a disk** mounted at `/var/data` and `DB_PATH=/var/data/biopulse.db` | Yes |
-| Managed Postgres (Neon/Supabase) | Yes — but the current code does not speak Postgres yet |
+| Managed Postgres (Neon/Supabase) via `DATABASE_URL` | Yes — this is the recommended production setup |
 
 The Staff tab shows an **“ephemeral DB — wiped on deploy”** badge when `/api/version` reports `dbPersistent: false`, and the server logs a warning at boot on Render.
 

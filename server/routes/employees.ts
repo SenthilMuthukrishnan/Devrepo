@@ -17,28 +17,30 @@ function slugifyUsername(name: string): string {
 }
 
 /** Returns a username that is free, or null when the requested one is taken. */
-function resolveUsername(
+async function resolveUsername(
   requested: unknown,
   fullName: string,
   excludeEmployeeId?: number
-): { username: string; conflict: boolean } {
+): Promise<{ username: string; conflict: boolean }> {
   const clean = String(requested ?? '').trim().toLowerCase().replace(/[^a-z0-9._-]/g, '');
   const base = clean || slugifyUsername(fullName) || 'user';
 
-  const taken = (candidate: string) => {
-    const row = db
-      .prepare('SELECT id FROM employees WHERE LOWER(username) = ? AND id != ?')
-      .get(candidate, excludeEmployeeId ?? -1) as { id: number } | undefined;
+  const taken = async (candidate: string) => {
+    const row = (await db.get(
+      'SELECT id FROM employees WHERE LOWER(username) = ? AND id != ?',
+      candidate,
+      excludeEmployeeId ?? -1
+    )) as { id: number } | undefined;
     return Boolean(row);
   };
 
-  if (clean && taken(clean)) {
+  if (clean && (await taken(clean))) {
     return { username: clean, conflict: true };
   }
 
   let candidate = base;
   let n = 1;
-  while (taken(candidate)) {
+  while (await taken(candidate)) {
     candidate = `${base}${n++}`;
   }
   return { username: candidate, conflict: false };
@@ -60,7 +62,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 // List / search employees with filters, biometric stats & today's attendance state
-employeesRouter.get('/', (req, res) => {
+employeesRouter.get('/', async (req, res) => {
   try {
     const today = getTodayDateString();
     const search = String(req.query.search || '').trim();
@@ -128,17 +130,17 @@ employeesRouter.get('/', (req, res) => {
       LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
       ${whereSql}
     `;
-    const totalRow = db.prepare(countQuery).get(...params) as { total: number };
+    const totalRow = await db.get(countQuery, ...params) as { total: number };
 
     // Global biometric stats across all active employees + offboarding count
-    const statsRow = db.prepare(`
+    const statsRow = await db.get(`
       SELECT
-        COUNT(CASE WHEN status = 'ACTIVE' THEN 1 END) as totalActive,
-        SUM(CASE WHEN status = 'ACTIVE' AND face_enrolled = 1 THEN 1 ELSE 0 END) as enrolledCount,
-        SUM(CASE WHEN status = 'ACTIVE' AND face_enrolled = 0 THEN 1 ELSE 0 END) as pendingCount,
-        COUNT(CASE WHEN status != 'ACTIVE' THEN 1 END) as resignedCount
+        COUNT(CASE WHEN status = 'ACTIVE' THEN 1 END) as "totalActive",
+        SUM(CASE WHEN status = 'ACTIVE' AND face_enrolled = 1 THEN 1 ELSE 0 END) as "enrolledCount",
+        SUM(CASE WHEN status = 'ACTIVE' AND face_enrolled = 0 THEN 1 ELSE 0 END) as "pendingCount",
+        COUNT(CASE WHEN status != 'ACTIVE' THEN 1 END) as "resignedCount"
       FROM employees
-    `).get() as {
+    `) as {
       totalActive: number;
       enrolledCount: number;
       pendingCount: number;
@@ -180,7 +182,7 @@ employeesRouter.get('/', (req, res) => {
       LIMIT ? OFFSET ?
     `;
 
-    const employees = db.prepare(rowsQuery).all(...params, limit, offset);
+    const employees = await db.all(rowsQuery, ...params, limit, offset);
 
     res.json({
       total: totalRow.total,
@@ -199,12 +201,12 @@ employeesRouter.get('/', (req, res) => {
 });
 
 // Get single employee full profile + attendance history + biometric vector preview
-employeesRouter.get('/:id/profile', (req, res) => {
+employeesRouter.get('/:id/profile', async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     const today = getTodayDateString();
 
-    const emp = db.prepare(`
+    const emp = await db.get(`
       SELECT
         e.*,
         COALESCE(a.status, 'NOT_CHECKED_IN') as today_status,
@@ -217,27 +219,27 @@ employeesRouter.get('/:id/profile', (req, res) => {
       FROM employees e
       LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
       WHERE e.id = ?
-    `).get(today, employeeId) as any;
+    `, today, employeeId) as any;
 
     if (!emp) {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    const recentPunches = db.prepare(`
+    const recentPunches = await db.all(`
       SELECT *
       FROM punch_events
       WHERE employee_id = ?
       ORDER BY id DESC
       LIMIT 15
-    `).all(employeeId);
+    `, employeeId);
 
-    const leaves = db.prepare(`
+    const leaves = await db.all(`
       SELECT *
       FROM leave_requests
       WHERE employee_id = ?
       ORDER BY id DESC
       LIMIT 10
-    `).all(employeeId);
+    `, employeeId);
 
     let parsedDescriptor: number[] = [];
     if (emp.face_descriptor) {
@@ -266,7 +268,7 @@ employeesRouter.get('/:id/profile', (req, res) => {
 });
 
 // Add new employee to the company directory
-employeesRouter.post('/', (req, res) => {
+employeesRouter.post('/', async (req, res) => {
   try {
     const {
       full_name,
@@ -285,7 +287,7 @@ employeesRouter.post('/', (req, res) => {
       return res.status(400).json({ error: 'Employee full name is required' });
     }
 
-    const maxIdRow = db.prepare('SELECT MAX(id) as maxId FROM employees').get() as { maxId: number | null };
+    const maxIdRow = await db.get('SELECT MAX(id) as "maxId" FROM employees') as { maxId: number | null };
         const nextNum = (maxIdRow.maxId || 0) + 1;
     const empCode = `EMP${String(nextNum).padStart(4, '0')}`;
 
@@ -295,7 +297,7 @@ employeesRouter.post('/', (req, res) => {
         ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
         : String(full_name).slice(0, 2).toUpperCase();
 
-    const { username: finalUsername, conflict } = resolveUsername(username, full_name);
+    const { username: finalUsername, conflict } = await resolveUsername(username, full_name);
     if (conflict) {
       return res.status(409).json({ error: `Username "${finalUsername}" is already taken` });
     }
@@ -306,14 +308,13 @@ employeesRouter.post('/', (req, res) => {
       `${parts[0].toLowerCase()}.${nextNum}@biopulse-corp.in`;
     const joinDate = joining_date || getTodayDateString();
 
-    const insertRes = db.prepare(`
+    const insertRes = await db.run(`
       INSERT INTO employees (
         emp_code, full_name, department, designation, shift_id,
         phone, email, username, base_salary, hourly_ot_rate, avatar_color,
         avatar_initials, face_enrolled, face_descriptor, joining_date, status
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NULL, ?, 'ACTIVE')
-    `).run(
-      empCode,
+    `, empCode,
       String(full_name).trim(),
       department,
       designation,
@@ -325,12 +326,9 @@ employeesRouter.post('/', (req, res) => {
       Number(hourly_ot_rate),
       avatarColor,
       initials,
-      joinDate
-    );
+      joinDate);
 
-    const newEmployee = db
-      .prepare('SELECT * FROM employees WHERE id = ?')
-      .get(Number(insertRes.lastInsertRowid));
+    const newEmployee = await db.get('SELECT * FROM employees WHERE id = ?', Number(insertRes.lastInsertRowid));
 
     res.status(201).json({
       success: true,
@@ -344,10 +342,10 @@ employeesRouter.post('/', (req, res) => {
 });
 
 // Update existing employee details, shift, or salary structure
-employeesRouter.put('/:id', (req, res) => {
+employeesRouter.put('/:id', async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
-    const existing = db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId) as any;
+    const existing = await db.get('SELECT * FROM employees WHERE id = ?', employeeId) as any;
     if (!existing) {
       return res.status(404).json({ error: 'Employee not found' });
     }
@@ -370,14 +368,14 @@ employeesRouter.put('/:id', (req, res) => {
         ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
         : String(full_name).slice(0, 2).toUpperCase();
 
-    const usernameResult = resolveUsername(username, full_name, employeeId);
+    const usernameResult = await resolveUsername(username, full_name, employeeId);
     if (usernameResult.conflict) {
       return res.status(409).json({
         error: `Username "${usernameResult.username}" is already taken`,
       });
     }
 
-    db.prepare(`
+    await db.run(`
       UPDATE employees
       SET full_name = ?,
           department = ?,
@@ -390,8 +388,7 @@ employeesRouter.put('/:id', (req, res) => {
           hourly_ot_rate = ?,
           avatar_initials = ?
       WHERE id = ?
-    `).run(
-      String(full_name).trim(),
+    `, String(full_name).trim(),
       department,
       designation,
       shift_id,
@@ -401,10 +398,9 @@ employeesRouter.put('/:id', (req, res) => {
       Number(base_salary),
       Number(hourly_ot_rate),
       initials,
-      employeeId
-    );
+      employeeId);
 
-    const updated = db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId);
+    const updated = await db.get('SELECT * FROM employees WHERE id = ?', employeeId);
     res.json({
       success: true,
       message: `Updated ${full_name} (${existing.emp_code})`,
@@ -417,7 +413,7 @@ employeesRouter.put('/:id', (req, res) => {
 });
 
 // Enroll or update employee biometric face descriptor + camera snapshot
-employeesRouter.post('/:id/enroll-face', (req, res) => {
+employeesRouter.post('/:id/enroll-face', async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     const { descriptor, snapshot } = req.body;
@@ -431,7 +427,7 @@ employeesRouter.post('/:id/enroll-face', (req, res) => {
       return res.status(400).json({ error: 'Face descriptor contains invalid values' });
     }
 
-    const emp = db.prepare('SELECT id, emp_code, full_name FROM employees WHERE id = ?').get(employeeId) as
+    const emp = await db.get('SELECT id, emp_code, full_name FROM employees WHERE id = ?', employeeId) as
       | { id: number; emp_code: string; full_name: string }
       | undefined;
 
@@ -439,14 +435,14 @@ employeesRouter.post('/:id/enroll-face', (req, res) => {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
-    db.prepare(`
+    await db.run(`
       UPDATE employees
       SET face_enrolled = 1,
           face_descriptor = ?,
           face_snapshot = COALESCE(?, face_snapshot),
           descriptor_source = 'CAMERA'
       WHERE id = ?
-    `).run(JSON.stringify(descriptor), snapshot || null, employeeId);
+    `, JSON.stringify(descriptor), snapshot || null, employeeId);
 
     res.json({
       success: true,
@@ -460,17 +456,17 @@ employeesRouter.post('/:id/enroll-face', (req, res) => {
 });
 
 // Reset/clear an employee's biometric face data for re-enrollment
-employeesRouter.delete('/:id/biometrics', (req, res) => {
+employeesRouter.delete('/:id/biometrics', async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
-    db.prepare(`
+    await db.run(`
       UPDATE employees
       SET face_enrolled = 0,
           face_descriptor = NULL,
           face_snapshot = NULL,
           descriptor_source = NULL
       WHERE id = ?
-    `).run(employeeId);
+    `, employeeId);
 
     res.json({
       success: true,
@@ -488,13 +484,13 @@ employeesRouter.delete('/:id/biometrics', (req, res) => {
 // history remains intact for statutory records. Biometrics are wiped so the
 // person can no longer punch in from the kiosk.
 // ---------------------------------------------------------------------------
-employeesRouter.delete('/:id', (req, res) => {
+employeesRouter.delete('/:id', async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     const { separation_date, separation_reason, reason, permanent } = req.body || {};
     const hardDelete = String(req.query.permanent || permanent || '').toLowerCase() === 'true';
 
-    const emp = db.prepare('SELECT id, emp_code, full_name, status FROM employees WHERE id = ?').get(employeeId) as
+    const emp = await db.get('SELECT id, emp_code, full_name, status FROM employees WHERE id = ?', employeeId) as
       | { id: number; emp_code: string; full_name: string; status: string }
       | undefined;
 
@@ -505,13 +501,12 @@ employeesRouter.delete('/:id', (req, res) => {
     // Permanent delete: erase the employee row and every history record that
     // references it. Used when a record was created by mistake; irreversible.
     if (hardDelete) {
-      const purge = db.transaction(() => {
-        db.prepare('DELETE FROM attendance_logs WHERE employee_id = ?').run(employeeId);
-        db.prepare('DELETE FROM punch_events WHERE employee_id = ?').run(employeeId);
-        db.prepare('DELETE FROM leave_requests WHERE employee_id = ?').run(employeeId);
-        db.prepare('DELETE FROM employees WHERE id = ?').run(employeeId);
+      await db.transaction(async () => {
+        await db.run('DELETE FROM attendance_logs WHERE employee_id = ?', employeeId);
+        await db.run('DELETE FROM punch_events WHERE employee_id = ?', employeeId);
+        await db.run('DELETE FROM leave_requests WHERE employee_id = ?', employeeId);
+        await db.run('DELETE FROM employees WHERE id = ?', employeeId);
       });
-      purge();
 
       return res.json({
         success: true,
@@ -530,7 +525,7 @@ employeesRouter.delete('/:id', (req, res) => {
     const leftOn = separation_date || getTodayDateString();
     const leftReason = String(separation_reason || reason || 'Resigned').trim() || 'Resigned';
 
-    db.prepare(`
+    await db.run(`
       UPDATE employees
       SET status = 'RESIGNED',
           separation_date = ?,
@@ -539,12 +534,12 @@ employeesRouter.delete('/:id', (req, res) => {
           face_descriptor = NULL,
           face_snapshot = NULL
       WHERE id = ?
-    `).run(leftOn, leftReason, employeeId);
+    `, leftOn, leftReason, employeeId);
 
     res.json({
       success: true,
       message: `${emp.full_name} (${emp.emp_code}) removed from the active workforce — ${leftReason} on ${leftOn}`,
-      employee: db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId),
+      employee: await db.get('SELECT * FROM employees WHERE id = ?', employeeId),
     });
   } catch (error) {
     console.error('Error offboarding employee:', error);
@@ -556,7 +551,7 @@ employeesRouter.delete('/:id', (req, res) => {
 // Bulk permanent delete — e.g. "clear the demo roster, keep only Senthil".
 // Body: { ids: number[] } or { keepIds: number[], includeFormer?: boolean }
 // ---------------------------------------------------------------------------
-employeesRouter.post('/bulk-delete', (req, res) => {
+employeesRouter.post('/bulk-delete', async (req, res) => {
   try {
     const body = req.body || {};
     const includeFormer = body.includeFormer !== false;
@@ -575,26 +570,21 @@ employeesRouter.post('/bulk-delete', (req, res) => {
         WHERE ${keepIds.length > 0 ? `id NOT IN (${keepPlaceholders})` : '1 = 1'}
         ${includeFormer ? '' : "AND status = 'ACTIVE'"}
       `;
-      targetIds = (db.prepare(sql).all(...keepIds) as Array<{ id: number }>).map((r) => r.id);
+      targetIds = (await db.all(sql, ...keepIds) as Array<{ id: number }>).map((r) => r.id);
     }
 
     if (targetIds.length === 0) {
       return res.status(400).json({ error: 'No employees matched — nothing to delete' });
     }
 
-    const purge = db.transaction((ids: number[]) => {
-      const delAtt = db.prepare('DELETE FROM attendance_logs WHERE employee_id = ?');
-      const delPunch = db.prepare('DELETE FROM punch_events WHERE employee_id = ?');
-      const delLeave = db.prepare('DELETE FROM leave_requests WHERE employee_id = ?');
-      const delEmp = db.prepare('DELETE FROM employees WHERE id = ?');
-      for (const id of ids) {
-        delAtt.run(id);
-        delPunch.run(id);
-        delLeave.run(id);
-        delEmp.run(id);
+    await db.transaction(async () => {
+      for (const id of targetIds) {
+        await db.run('DELETE FROM attendance_logs WHERE employee_id = ?', id);
+        await db.run('DELETE FROM punch_events WHERE employee_id = ?', id);
+        await db.run('DELETE FROM leave_requests WHERE employee_id = ?', id);
+        await db.run('DELETE FROM employees WHERE id = ?', id);
       }
     });
-    purge(targetIds);
 
     res.json({
       success: true,
@@ -609,10 +599,10 @@ employeesRouter.post('/bulk-delete', (req, res) => {
 });
 
 // Re-hire / undo an accidental offboarding: bring the employee back on payroll.
-employeesRouter.post('/:id/restore', (req, res) => {
+employeesRouter.post('/:id/restore', async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
-    const emp = db.prepare('SELECT id, emp_code, full_name, status FROM employees WHERE id = ?').get(employeeId) as
+    const emp = await db.get('SELECT id, emp_code, full_name, status FROM employees WHERE id = ?', employeeId) as
       | { id: number; emp_code: string; full_name: string; status: string }
       | undefined;
 
@@ -623,18 +613,18 @@ employeesRouter.post('/:id/restore', (req, res) => {
       return res.status(409).json({ error: `${emp.full_name} is already an active employee` });
     }
 
-    db.prepare(`
+    await db.run(`
       UPDATE employees
       SET status = 'ACTIVE',
           separation_date = NULL,
           separation_reason = NULL
       WHERE id = ?
-    `).run(employeeId);
+    `, employeeId);
 
     res.json({
       success: true,
       message: `${emp.full_name} (${emp.emp_code}) restored to the active workforce`,
-      employee: db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId),
+      employee: await db.get('SELECT * FROM employees WHERE id = ?', employeeId),
     });
   } catch (error) {
     console.error('Error restoring employee:', error);
@@ -666,7 +656,7 @@ function euclideanDistance(a: number[], b: number[]): number {
   return Math.sqrt(sum);
 }
 
-employeesRouter.post('/match-face', (req, res) => {
+employeesRouter.post('/match-face', async (req, res) => {
   try {
     const today = getTodayDateString();
     const { descriptor } = req.body;
@@ -680,7 +670,7 @@ employeesRouter.post('/match-face', (req, res) => {
       return res.status(400).json({ error: 'Face descriptor contains invalid values' });
     }
 
-    const candidates = db.prepare(`
+    const candidates = await db.all(`
       SELECT
         e.id, e.emp_code, e.full_name, e.department, e.designation, e.shift_id,
         e.avatar_color, e.avatar_initials, e.face_enrolled, e.face_descriptor,
@@ -695,7 +685,7 @@ employeesRouter.post('/match-face', (req, res) => {
       WHERE e.status = 'ACTIVE'
         AND e.face_enrolled = 1
         AND e.face_descriptor IS NOT NULL
-    `).all(today) as Array<any>;
+    `, today) as Array<any>;
 
     if (candidates.length === 0) {
       return res.json({

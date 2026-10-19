@@ -2,7 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
-import { initDatabase } from './db';
 import { db } from './db';
 import { dashboardRouter } from './routes/dashboard';
 import { employeesRouter } from './routes/employees';
@@ -10,8 +9,6 @@ import { attendanceRouter } from './routes/attendance';
 import { leaveOvertimeRouter } from './routes/leave-overtime';
 import { reportsRouter } from './routes/reports';
 import { payrollRouter } from './routes/payroll';
-
-initDatabase();
 
 export const apiApp = express();
 
@@ -52,11 +49,11 @@ try {
   /* ignore */
 }
 
-apiApp.get('/api/version', (_req, res) => {
+apiApp.get('/api/version', async (_req, res) => {
   let staffCount = 0;
   try {
-    const row = db.prepare('SELECT COUNT(*) as c FROM employees').get() as { c: number };
-    staffCount = row?.c ?? 0;
+    const row = (await db.get('SELECT COUNT(*) as c FROM employees')) as { c: number | string };
+    staffCount = Number(row?.c ?? 0);
   } catch {
     /* table may not exist yet */
   }
@@ -67,18 +64,22 @@ apiApp.get('/api/version', (_req, res) => {
       process.env.RAILWAY_ENVIRONMENT ||
       process.env.FLY_APP_NAME
   );
+  // Never echo credentials: a DATABASE_URL may contain user:password.
+  const redactedUrl = (process.env.DATABASE_URL || '').replace(/\/\/[^@/]*@/, '//***@');
+
   res.json({
     buildId: BUILD_ID,
     startedAt: SERVER_STARTED_AT,
-    dbPath: process.env.DB_PATH || path.resolve(process.cwd(), 'data', 'biopulse.db'),
+    dbPath: db.kind === 'sqlite' ? process.env.DB_PATH || path.resolve(process.cwd(), 'data', 'biopulse.db') : redactedUrl || db.describe(),
     cwd: process.cwd(),
     staffCount,
     // SQLite in a container is wiped whenever the platform rebuilds it. The UI
     // shows a warning when the database is not on a mounted disk.
-    dbEngine: 'sqlite',
-    // A container filesystem is ephemeral unless DB_PATH points at a mounted
-    // disk. Locally the file is durable, so only warn on hosting platforms.
-    dbPersistent: usingExplicitDbPath || !hostedEphemeral,
+    dbEngine: db.kind,
+    // Postgres is managed by the provider and always durable. SQLite inside a
+    // container is ephemeral unless DB_PATH points at a mounted disk; locally
+    // the file is durable, so only warn on hosting platforms.
+    dbPersistent: db.kind === 'postgres' || usingExplicitDbPath || !hostedEphemeral,
     hosting: process.env.RENDER ? 'render' : process.env.VERCEL ? 'vercel' : 'local',
   });
 });

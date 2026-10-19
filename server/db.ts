@@ -1,53 +1,6 @@
-import Database from 'better-sqlite3';
-import fs from 'fs';
-import path from 'path';
+import { db, usingPostgres } from './database';
 
-/**
- * Database location.
- *
- * `data/` is used instead of the repo root so the file sits in a directory that
- * tooling does not treat as build output; set DB_PATH to point at a persistent
- * volume in production (Railway/Render/Fly).
- */
-const dataDir = path.resolve(process.cwd(), 'data');
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
-
-const dbPath = process.env.DB_PATH
-  ? path.resolve(process.env.DB_PATH)
-  : path.join(dataDir, 'biopulse.db');
-
-// One-time migration from the legacy root-level file so existing data survives.
-const legacyPath = path.resolve(process.cwd(), 'biopulse500.db');
-if (!fs.existsSync(dbPath) && fs.existsSync(legacyPath) && fs.statSync(legacyPath).size > 0) {
-  for (const suffix of ['', '-wal', '-shm']) {
-    const from = `${legacyPath}${suffix}`;
-    if (fs.existsSync(from)) fs.copyFileSync(from, `${dbPath}${suffix}`);
-  }
-  console.log(`[db] migrated legacy database to ${dbPath}`);
-}
-
-export const db = new Database(dbPath);
-
-// TRUNCATE (not WAL) keeps every committed transaction inside the main .db
-// file. With WAL, a kill/restart can leave data sitting in -wal/-shm sidecar
-// files that are easily lost when the workspace is snapshotted.
-db.pragma('journal_mode = TRUNCATE');
-db.pragma('synchronous = FULL');
-db.pragma('foreign_keys = ON');
-console.log(`[db] using ${dbPath}`);
-
-// Render/Railway/Fly containers are rebuilt from the repo on every deploy, and
-// free instances also sleep. A SQLite file inside that container is therefore
-// erased regularly — set DB_PATH to a mounted disk, or move to Postgres.
-if (!process.env.DB_PATH && (process.env.RENDER || process.env.RAILWAY_ENVIRONMENT)) {
-  console.warn(
-    '[db] WARNING: SQLite is stored inside the container (%s).\n' +
-      '     This file is DELETED on every deploy/restart on %s.\n' +
-      '     Mount a persistent disk and set DB_PATH=/var/data/biopulse.db, or use Postgres.',
-    dbPath,
-    process.env.RENDER ? 'Render' : 'Railway'
-  );
-}
+export { db };
 
 export interface ShiftConfig {
   id: string;
@@ -65,117 +18,220 @@ export const SHIFTS: ShiftConfig[] = [
   { id: 'NIGHT', name: 'Night Shift (C)', startTime: '22:00', endTime: '06:00', graceMinutes: 15, standardHours: 8 },
 ];
 
-// Lightweight forward-only migration helper: older databases on disk may
-// predate a column, so add it in place instead of requiring a reset.
-function ensureColumn(table: string, column: string, definition: string) {
-  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+// ---------------------------------------------------------------------------
+// Schema
+// ---------------------------------------------------------------------------
+
+const SQLITE_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS employees (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    emp_code TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    designation TEXT NOT NULL,
+    shift_id TEXT NOT NULL DEFAULT 'GENERAL',
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL,
+    base_salary REAL NOT NULL DEFAULT 35000,
+    hourly_ot_rate REAL NOT NULL DEFAULT 220,
+    avatar_color TEXT NOT NULL,
+    avatar_initials TEXT NOT NULL,
+    face_enrolled INTEGER NOT NULL DEFAULT 1,
+    face_descriptor TEXT,
+    face_snapshot TEXT,
+    joining_date TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'ACTIVE'
+  );
+
+  CREATE TABLE IF NOT EXISTS attendance_logs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    emp_code TEXT NOT NULL,
+    date TEXT NOT NULL,
+    check_in_time TEXT,
+    check_out_time TEXT,
+    status TEXT NOT NULL DEFAULT 'PRESENT',
+    late_minutes INTEGER NOT NULL DEFAULT 0,
+    work_hours REAL NOT NULL DEFAULT 0,
+    overtime_hours REAL NOT NULL DEFAULT 0,
+    confidence_score REAL NOT NULL DEFAULT 98.5,
+    verify_mode TEXT NOT NULL DEFAULT 'FACE_CAMERA',
+    device_label TEXT NOT NULL DEFAULT 'Android Kiosk Tab-01',
+    snapshot_url TEXT,
+    notes TEXT,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (employee_id) REFERENCES employees(id),
+    UNIQUE(employee_id, date)
+  );
+
+  CREATE TABLE IF NOT EXISTS punch_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    emp_code TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    shift_id TEXT NOT NULL,
+    avatar_color TEXT NOT NULL,
+    avatar_initials TEXT NOT NULL,
+    punch_type TEXT NOT NULL,
+    punch_time TEXT NOT NULL,
+    date TEXT NOT NULL,
+    confidence_score REAL NOT NULL,
+    device_label TEXT NOT NULL,
+    late_minutes INTEGER NOT NULL DEFAULT 0,
+    work_hours REAL NOT NULL DEFAULT 0,
+    overtime_hours REAL NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS leave_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_id INTEGER NOT NULL,
+    emp_code TEXT NOT NULL,
+    leave_type TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    days REAL NOT NULL DEFAULT 1,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'APPROVED',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (employee_id) REFERENCES employees(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS app_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+`;
+
+// Same shape, Postgres types. Flags stay INTEGER (0/1) and JSON blobs stay TEXT
+// so the query code is identical across both engines.
+const PG_SCHEMA = `
+  CREATE TABLE IF NOT EXISTS employees (
+    id SERIAL PRIMARY KEY,
+    emp_code TEXT UNIQUE NOT NULL,
+    full_name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    designation TEXT NOT NULL,
+    shift_id TEXT NOT NULL DEFAULT 'GENERAL',
+    phone TEXT NOT NULL,
+    email TEXT NOT NULL,
+    base_salary DOUBLE PRECISION NOT NULL DEFAULT 35000,
+    hourly_ot_rate DOUBLE PRECISION NOT NULL DEFAULT 220,
+    avatar_color TEXT NOT NULL,
+    avatar_initials TEXT NOT NULL,
+    face_enrolled INTEGER NOT NULL DEFAULT 1,
+    face_descriptor TEXT,
+    face_snapshot TEXT,
+    descriptor_source TEXT,
+    username TEXT,
+    separation_date TEXT,
+    separation_reason TEXT,
+    joining_date TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'ACTIVE'
+  );
+
+  CREATE TABLE IF NOT EXISTS attendance_logs (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER NOT NULL,
+    emp_code TEXT NOT NULL,
+    date TEXT NOT NULL,
+    check_in_time TEXT,
+    check_out_time TEXT,
+    status TEXT NOT NULL DEFAULT 'PRESENT',
+    late_minutes INTEGER NOT NULL DEFAULT 0,
+    work_hours DOUBLE PRECISION NOT NULL DEFAULT 0,
+    overtime_hours DOUBLE PRECISION NOT NULL DEFAULT 0,
+    confidence_score DOUBLE PRECISION NOT NULL DEFAULT 98.5,
+    verify_mode TEXT NOT NULL DEFAULT 'FACE_CAMERA',
+    device_label TEXT NOT NULL DEFAULT 'Android Kiosk Tab-01',
+    snapshot_url TEXT,
+    notes TEXT,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (employee_id) REFERENCES employees(id),
+    UNIQUE(employee_id, date)
+  );
+
+  CREATE TABLE IF NOT EXISTS punch_events (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER NOT NULL,
+    emp_code TEXT NOT NULL,
+    full_name TEXT NOT NULL,
+    department TEXT NOT NULL,
+    shift_id TEXT NOT NULL,
+    avatar_color TEXT NOT NULL,
+    avatar_initials TEXT NOT NULL,
+    punch_type TEXT NOT NULL,
+    punch_time TEXT NOT NULL,
+    date TEXT NOT NULL,
+    confidence_score DOUBLE PRECISION NOT NULL,
+    device_label TEXT NOT NULL,
+    late_minutes INTEGER NOT NULL DEFAULT 0,
+    work_hours DOUBLE PRECISION NOT NULL DEFAULT 0,
+    overtime_hours DOUBLE PRECISION NOT NULL DEFAULT 0
+  );
+
+  CREATE TABLE IF NOT EXISTS leave_requests (
+    id SERIAL PRIMARY KEY,
+    employee_id INTEGER NOT NULL,
+    emp_code TEXT NOT NULL,
+    leave_type TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    days DOUBLE PRECISION NOT NULL DEFAULT 1,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'APPROVED',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (employee_id) REFERENCES employees(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS app_meta (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_username ON employees(username);
+  CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance_logs(date);
+  CREATE INDEX IF NOT EXISTS idx_attendance_employee ON attendance_logs(employee_id, date);
+  CREATE INDEX IF NOT EXISTS idx_punch_events_date ON punch_events(date);
+  CREATE INDEX IF NOT EXISTS idx_punch_events_employee ON punch_events(employee_id, date);
+  CREATE INDEX IF NOT EXISTS idx_leave_employee ON leave_requests(employee_id);
+`;
+
+// Forward-only migration helper: older databases may predate a column.
+async function ensureColumn(table: string, column: string, definition: string) {
+  if (usingPostgres) {
+    await db.exec(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS ${column} ${definition}`);
+    return;
+  }
+  const columns = (await db.all(`PRAGMA table_info(${table})`)) as Array<{ name: string }>;
   if (!columns.some((c) => c.name === column)) {
-    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
 }
 
-export function initDatabase() {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS employees (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      emp_code TEXT UNIQUE NOT NULL,
-      full_name TEXT NOT NULL,
-      department TEXT NOT NULL,
-      designation TEXT NOT NULL,
-      shift_id TEXT NOT NULL DEFAULT 'GENERAL',
-      phone TEXT NOT NULL,
-      email TEXT NOT NULL,
-      base_salary REAL NOT NULL DEFAULT 35000,
-      hourly_ot_rate REAL NOT NULL DEFAULT 220,
-      avatar_color TEXT NOT NULL,
-      avatar_initials TEXT NOT NULL,
-      face_enrolled INTEGER NOT NULL DEFAULT 1,
-      face_descriptor TEXT,
-      face_snapshot TEXT,
-      joining_date TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'ACTIVE'
-    );
+export async function initDatabase(): Promise<void> {
+  if (usingPostgres) {
+    await db.exec(PG_SCHEMA);
+  } else {
+    await db.exec(SQLITE_SCHEMA);
 
-    CREATE TABLE IF NOT EXISTS attendance_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      employee_id INTEGER NOT NULL,
-      emp_code TEXT NOT NULL,
-      date TEXT NOT NULL,
-      check_in_time TEXT,
-      check_out_time TEXT,
-      status TEXT NOT NULL DEFAULT 'PRESENT',
-      late_minutes INTEGER NOT NULL DEFAULT 0,
-      work_hours REAL NOT NULL DEFAULT 0,
-      overtime_hours REAL NOT NULL DEFAULT 0,
-      confidence_score REAL NOT NULL DEFAULT 98.5,
-      verify_mode TEXT NOT NULL DEFAULT 'FACE_CAMERA',
-      device_label TEXT NOT NULL DEFAULT 'Android Kiosk Tab-01',
-      snapshot_url TEXT,
-      notes TEXT,
-      updated_at TEXT NOT NULL,
-      FOREIGN KEY (employee_id) REFERENCES employees(id),
-      UNIQUE(employee_id, date)
-    );
+    // Offboarding metadata + face-descriptor provenance + login handle.
+    await ensureColumn('employees', 'separation_date', 'TEXT');
+    await ensureColumn('employees', 'separation_reason', 'TEXT');
+    await ensureColumn('employees', 'descriptor_source', 'TEXT');
+    await ensureColumn('employees', 'username', 'TEXT');
 
-    CREATE TABLE IF NOT EXISTS punch_events (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      employee_id INTEGER NOT NULL,
-      emp_code TEXT NOT NULL,
-      full_name TEXT NOT NULL,
-      department TEXT NOT NULL,
-      shift_id TEXT NOT NULL,
-      avatar_color TEXT NOT NULL,
-      avatar_initials TEXT NOT NULL,
-      punch_type TEXT NOT NULL, -- 'CHECK_IN' | 'CHECK_OUT' | 'BREAK_IN' | 'BREAK_OUT'
-      punch_time TEXT NOT NULL,
-      date TEXT NOT NULL,
-      confidence_score REAL NOT NULL,
-      device_label TEXT NOT NULL,
-      late_minutes INTEGER NOT NULL DEFAULT 0,
-      work_hours REAL NOT NULL DEFAULT 0,
-      overtime_hours REAL NOT NULL DEFAULT 0
-    );
+    await db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_username ON employees(username)');
+  }
 
-    CREATE TABLE IF NOT EXISTS leave_requests (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      employee_id INTEGER NOT NULL,
-      emp_code TEXT NOT NULL,
-      leave_type TEXT NOT NULL, -- 'CL' | 'SL' | 'PL' | 'LOP'
-      start_date TEXT NOT NULL,
-      end_date TEXT NOT NULL,
-      days REAL NOT NULL DEFAULT 1,
-      reason TEXT NOT NULL,
-      status TEXT NOT NULL DEFAULT 'APPROVED',
-      created_at TEXT NOT NULL,
-      FOREIGN KEY (employee_id) REFERENCES employees(id)
-    );
-  `);
-
-  // Offboarding metadata (resignation / termination). `status` already exists:
-  // 'ACTIVE' for current staff, 'RESIGNED' once someone has left the company.
-  ensureColumn('employees', 'separation_date', 'TEXT');
-  ensureColumn('employees', 'separation_reason', 'TEXT');
-
-  // Where the stored face vector came from:
-  //   'CAMERA' — enrolled from a real camera frame (trustworthy for matching)
-  //   'SEEDED' — synthetic demo vector (must NOT be used for recognition)
-  ensureColumn('employees', 'descriptor_source', 'TEXT');
-
-  // Login handle for each employee (e.g. "ayaan.rao"). Unique when present.
-  ensureColumn('employees', 'username', 'TEXT');
-  db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_username ON employees(username)');
-
-  // Classify descriptors written before this column existed. Only a real
+  // Classify descriptors written before descriptor_source existed. Only a real
   // 128-D embedding can be matched against; anything else (demo seeds or the
-  // old 16/64-value brightness grid) is flagged so it is never used for
-  // identification.
-  const unclassified = db
-    .prepare(
-      `SELECT id, face_descriptor FROM employees
-        WHERE descriptor_source IS NULL AND face_descriptor IS NOT NULL`
-    )
-    .all() as Array<{ id: number; face_descriptor: string }>;
-  const classify = db.prepare('UPDATE employees SET descriptor_source = ? WHERE id = ?');
+  // old 16/64-value brightness grid) is flagged so it is never used to
+  // identify somebody.
+  const unclassified = (await db.all(
+    `SELECT id, face_descriptor FROM employees
+      WHERE descriptor_source IS NULL AND face_descriptor IS NOT NULL`
+  )) as Array<{ id: number; face_descriptor: string }>;
   for (const row of unclassified) {
     let isEmbedding = false;
     try {
@@ -184,26 +240,20 @@ export function initDatabase() {
     } catch {
       isEmbedding = false;
     }
-    classify.run(isEmbedding ? 'CAMERA' : 'LEGACY', row.id);
+    await db.run('UPDATE employees SET descriptor_source = ? WHERE id = ?', isEmbedding ? 'CAMERA' : 'LEGACY', row.id);
   }
 
-  backfillUsernames();
+  await backfillUsernames();
 
   // Demo data is seeded exactly once, ever. Without this marker, deleting the
   // last employee would trigger a reseed on the next boot and the demo roster
   // would appear to "come back from the dead".
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS app_meta (
-      key TEXT PRIMARY KEY,
-      value TEXT NOT NULL
-    );
-  `);
+  const seededFlag = (await db.get("SELECT value FROM app_meta WHERE key = 'demo_seeded'")) as
+    | { value: string }
+    | undefined;
 
-  const seededFlag = db
-    .prepare("SELECT value FROM app_meta WHERE key = 'demo_seeded'")
-    .get() as { value: string } | undefined;
-
-  const countRow = db.prepare('SELECT COUNT(*) as count FROM employees').get() as { count: number };
+  const countRow = (await db.get('SELECT COUNT(*) as count FROM employees')) as { count: number | string };
+  const employeeCount = Number(countRow?.count ?? 0);
 
   // Demo roster (Ayaan Rao, Neha Shetty, …) is OPT-IN. A fresh install starts
   // with an empty employee list so nobody has to delete 15 fake people again.
@@ -213,31 +263,27 @@ export function initDatabase() {
     String(process.env.SEED_DEMO || '').toLowerCase()
   );
 
-  if (demoRequested && !seededFlag && countRow.count === 0) {
-    seedEmployees();
-    seedMonthlyAttendanceHistory();
-    db.prepare("INSERT INTO app_meta (key, value) VALUES ('demo_seeded', ?)").run(
-      new Date().toISOString()
-    );
+  if (demoRequested && !seededFlag && employeeCount === 0) {
+    await seedEmployees();
+    await seedMonthlyAttendanceHistory();
+    await db.run("INSERT INTO app_meta (key, value) VALUES ('demo_seeded', ?)", new Date().toISOString());
   }
-
 }
 
 /** Give every employee without a username a unique handle derived from their name. */
-function backfillUsernames() {
-  const missing = db
-    .prepare("SELECT id, full_name FROM employees WHERE username IS NULL OR TRIM(username) = ''")
-    .all() as Array<{ id: number; full_name: string }>;
+async function backfillUsernames() {
+  const missing = (await db.all(
+    "SELECT id, full_name FROM employees WHERE username IS NULL OR TRIM(username) = ''"
+  )) as Array<{ id: number; full_name: string }>;
 
   if (missing.length === 0) return;
 
   const taken = new Set(
-    (db.prepare('SELECT username FROM employees WHERE username IS NOT NULL').all() as Array<{
+    ((await db.all('SELECT username FROM employees WHERE username IS NOT NULL')) as Array<{
       username: string;
     }>).map((r) => r.username.toLowerCase())
   );
 
-  const update = db.prepare('UPDATE employees SET username = ? WHERE id = ?');
   for (const emp of missing) {
     const base =
       String(emp.full_name)
@@ -251,14 +297,16 @@ function backfillUsernames() {
       candidate = `${base}${n++}`;
     }
     taken.add(candidate);
-    update.run(candidate, emp.id);
+    await db.run('UPDATE employees SET username = ? WHERE id = ?', candidate, emp.id);
   }
 }
 
 // Generate deterministic attendance history (full previous month + current month up to yesterday)
 // so Module 5 payroll has a realistic monthly dataset to compute salary from.
-function seedMonthlyAttendanceHistory() {
-  const employees = db.prepare('SELECT id, emp_code, shift_id FROM employees ORDER BY id ASC').all() as Array<{ id: number; emp_code: string; shift_id: string }>;
+async function seedMonthlyAttendanceHistory() {
+  const employees = (await db.all(
+    'SELECT id, emp_code, shift_id FROM employees ORDER BY id ASC'
+  )) as Array<{ id: number; emp_code: string; shift_id: string }>;
   if (employees.length === 0) return;
 
   const deterministicRandom = (seed: number) => {
@@ -281,19 +329,19 @@ function seedMonthlyAttendanceHistory() {
     periods.push({ year: now.getFullYear(), month: now.getMonth(), lastDay: now.getDate() - 1 });
   }
 
-  const insertAtt = db.prepare(`
+  const INSERT_ATTENDANCE = `
     INSERT INTO attendance_logs (
       employee_id, emp_code, date, check_in_time, check_out_time,
       status, late_minutes, work_hours, overtime_hours, confidence_score,
       verify_mode, device_label, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
-  const insertLeave = db.prepare(`
+  `;
+  const INSERT_LEAVE = `
     INSERT INTO leave_requests (employee_id, emp_code, leave_type, start_date, end_date, days, reason, status, created_at)
     VALUES (?, ?, ?, ?, ?, 1, ?, 'APPROVED', ?)
-  `);
+  `;
 
-  const historyTransaction = db.transaction(() => {
+  await db.transaction(async () => {
     for (const period of periods) {
       for (let day = 1; day <= period.lastDay; day++) {
         const dateObj = new Date(period.year, period.month, day);
@@ -312,14 +360,14 @@ function seedMonthlyAttendanceHistory() {
 
           if (r1 < 0.045) {
             // Absent — no check-in recorded
-            insertAtt.run(emp.id, emp.emp_code, dateStr, null, null, 'NOT_CHECKED_IN', 0, 0, 0, 97.5, 'FACE_CAMERA', 'Gate-1 Android Tab Kiosk', `${dateStr}T23:59:00`);
+            await db.run(INSERT_ATTENDANCE, emp.id, emp.emp_code, dateStr, null, null, 'NOT_CHECKED_IN', 0, 0, 0, 97.5, 'FACE_CAMERA', 'Gate-1 Android Tab Kiosk', `${dateStr}T23:59:00`);
           } else if (r1 < 0.105) {
             // Approved leave
             const leaveTypes = ['CL', 'SL', 'PL'];
             const lType = leaveTypes[empNum % leaveTypes.length];
             const reasons = ['Personal family commitment', 'Medical checkup & rest', 'Planned vacation'];
-            insertLeave.run(emp.id, emp.emp_code, lType, dateStr, dateStr, reasons[empNum % reasons.length], `${dateStr}T08:00:00`);
-            insertAtt.run(emp.id, emp.emp_code, dateStr, null, null, 'ON_LEAVE', 0, 0, 0, 100, 'HR_PORTAL', 'HR Leave System', `${dateStr}T08:00:00`);
+            await db.run(INSERT_LEAVE, emp.id, emp.emp_code, lType, dateStr, dateStr, reasons[empNum % reasons.length], `${dateStr}T08:00:00`);
+            await db.run(INSERT_ATTENDANCE, emp.id, emp.emp_code, dateStr, null, null, 'ON_LEAVE', 0, 0, 0, 100, 'HR_PORTAL', 'HR Leave System', `${dateStr}T08:00:00`);
           } else {
             const isLate = r3 < 0.12;
             const lateMins = isLate ? 8 + Math.floor(r2 * 35) : 0;
@@ -333,7 +381,7 @@ function seedMonthlyAttendanceHistory() {
                   ? `${pad(16 + Math.floor(r3 * 3))}:${pad(10 + Math.floor(r2 * 49))}`
                   : `${pad(17 + Math.floor(r3 * 4))}:${pad(10 + Math.floor(r2 * 49))}`)
               : null;
-            insertAtt.run(
+            await db.run(INSERT_ATTENDANCE, 
               emp.id,
               emp.emp_code,
               dateStr,
@@ -353,8 +401,6 @@ function seedMonthlyAttendanceHistory() {
       }
     }
   });
-
-  historyTransaction();
 }
 
 const FIRST_NAMES = [
@@ -480,39 +526,39 @@ export function getTodayDateString(): string {
   return `${y}-${m}-${d}`;
 }
 
-function seedEmployees() {
+async function seedEmployees() {
   const today = getTodayDateString();
-  const insertEmp = db.prepare(`
+  const INSERT_EMPLOYEE = `
     INSERT INTO employees (
       emp_code, full_name, department, designation, shift_id,
       phone, email, base_salary, hourly_ot_rate, avatar_color,
       avatar_initials, face_enrolled, face_descriptor, descriptor_source, joining_date, status
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
-  `);
+  `;
 
-  const insertAtt = db.prepare(`
+  const INSERT_ATTENDANCE_TODAY = `
     INSERT INTO attendance_logs (
       employee_id, emp_code, date, check_in_time, check_out_time,
       status, late_minutes, work_hours, overtime_hours, confidence_score,
       verify_mode, device_label, updated_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+  `;
 
-  const insertPunch = db.prepare(`
+  const INSERT_PUNCH = `
     INSERT INTO punch_events (
       employee_id, emp_code, full_name, department, shift_id,
       avatar_color, avatar_initials, punch_type, punch_time, date,
       confidence_score, device_label, late_minutes, work_hours, overtime_hours
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `);
+  `;
 
-  const insertLeave = db.prepare(`
+  const INSERT_LEAVE_TODAY = `
     INSERT INTO leave_requests (
       employee_id, emp_code, leave_type, start_date, end_date, days, reason, status, created_at
     ) VALUES (?, ?, ?, ?, ?, 1, ?, 'APPROVED', ?)
-  `);
+  `;
 
-  const seedTransaction = db.transaction(() => {
+  await db.transaction(async () => {
     let empIndex = 1;
 
     for (const dept of DEPARTMENTS) {
@@ -537,7 +583,7 @@ function seedEmployees() {
         const joinDay = String((empIndex % 27) + 1).padStart(2, '0');
         const joiningDate = `${joinYear}-${joinMonth}-${joinDay}`;
 
-        const res = insertEmp.run(
+        const res = await db.run(INSERT_EMPLOYEE, 
           empCode,
           fullName,
           dept.name,
@@ -568,7 +614,7 @@ function seedEmployees() {
           // On Approved Leave today (1 employee)
           const leaveTypes = ['CL', 'SL', 'PL'];
           const lType = leaveTypes[empIndex % leaveTypes.length];
-          insertLeave.run(
+          await db.run(INSERT_LEAVE_TODAY, 
             employeeId,
             empCode,
             lType,
@@ -577,7 +623,7 @@ function seedEmployees() {
             lType === 'SL' ? 'Medical checkup & rest' : 'Personal family commitment',
             `${today}T08:00:00`
           );
-          insertAtt.run(
+          await db.run(INSERT_ATTENDANCE_TODAY, 
             employeeId,
             empCode,
             today,
@@ -602,7 +648,7 @@ function seedEmployees() {
           const workHours = hasOt ? (shiftId === 'MORNING' ? 10.5 : 10.8) : 8.1;
           const otHours = hasOt ? Number((workHours - 8).toFixed(1)) : 0;
 
-          insertAtt.run(
+          await db.run(INSERT_ATTENDANCE_TODAY, 
             employeeId,
             empCode,
             today,
@@ -619,7 +665,7 @@ function seedEmployees() {
           );
 
           if (empIndex <= 35) {
-            insertPunch.run(
+            await db.run(INSERT_PUNCH, 
               employeeId, empCode, fullName, dept.name, shiftId,
               avatarColor, initials, 'CHECK_OUT', checkOut, today,
               confidence, device, 0, workHours, otHours
@@ -633,7 +679,7 @@ function seedEmployees() {
             ? (isLate ? '06:24' : '05:55')
             : (isLate ? '09:28' : '08:52');
 
-          insertAtt.run(
+          await db.run(INSERT_ATTENDANCE_TODAY, 
             employeeId,
             empCode,
             today,
@@ -650,7 +696,7 @@ function seedEmployees() {
           );
 
           if (empIndex <= 45) {
-            insertPunch.run(
+            await db.run(INSERT_PUNCH, 
               employeeId, empCode, fullName, dept.name, shiftId,
               avatarColor, initials, 'CHECK_IN', checkIn, today,
               confidence, device, lateMins, 0, 0
@@ -663,6 +709,4 @@ function seedEmployees() {
       }
     }
   });
-
-  seedTransaction();
 }

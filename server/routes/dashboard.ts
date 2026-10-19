@@ -3,31 +3,31 @@ import { db, getTodayDateString, SHIFTS } from '../db';
 
 export const dashboardRouter = Router();
 
-dashboardRouter.get('/summary', (_req, res) => {
+dashboardRouter.get('/summary', async (_req, res) => {
   try {
     const today = getTodayDateString();
 
-    const totalRow = db.prepare(`
+    const totalRow = await db.get(`
       SELECT
-        COUNT(*) as totalEmployees,
-        SUM(CASE WHEN face_enrolled = 1 THEN 1 ELSE 0 END) as enrolledCount
+        COUNT(*) as "totalEmployees",
+        SUM(CASE WHEN face_enrolled = 1 THEN 1 ELSE 0 END) as "enrolledCount"
       FROM employees
       WHERE status = 'ACTIVE'
-    `).get() as { totalEmployees: number; enrolledCount: number };
+    `) as { totalEmployees: number; enrolledCount: number };
 
-    const attCounts = db.prepare(`
+    const attCounts = await db.get(`
       SELECT
-        COUNT(CASE WHEN status IN ('PRESENT', 'LATE', 'CHECKED_OUT') THEN 1 END) as totalAttendedToday,
-        COUNT(CASE WHEN status IN ('PRESENT', 'LATE') THEN 1 END) as currentlyInside,
-        COUNT(CASE WHEN status = 'CHECKED_OUT' THEN 1 END) as checkedOutCount,
-        COUNT(CASE WHEN status = 'LATE' OR late_minutes > 0 THEN 1 END) as lateCount,
-        COUNT(CASE WHEN status = 'ON_LEAVE' THEN 1 END) as onLeaveCount,
-        COALESCE(SUM(overtime_hours), 0) as totalOvertimeHours,
-        COALESCE(SUM(work_hours), 0) as totalWorkHours,
-        COALESCE(AVG(CASE WHEN status != 'ON_LEAVE' THEN confidence_score END), 98.2) as avgConfidence
+        COUNT(CASE WHEN status IN ('PRESENT', 'LATE', 'CHECKED_OUT') THEN 1 END) as "totalAttendedToday",
+        COUNT(CASE WHEN status IN ('PRESENT', 'LATE') THEN 1 END) as "currentlyInside",
+        COUNT(CASE WHEN status = 'CHECKED_OUT' THEN 1 END) as "checkedOutCount",
+        COUNT(CASE WHEN status = 'LATE' OR late_minutes > 0 THEN 1 END) as "lateCount",
+        COUNT(CASE WHEN status = 'ON_LEAVE' THEN 1 END) as "onLeaveCount",
+        COALESCE(SUM(overtime_hours), 0) as "totalOvertimeHours",
+        COALESCE(SUM(work_hours), 0) as "totalWorkHours",
+        COALESCE(AVG(CASE WHEN status != 'ON_LEAVE' THEN confidence_score END), 98.2) as "avgConfidence"
       FROM attendance_logs
       WHERE date = ?
-    `).get(today) as {
+    `, today) as {
       totalAttendedToday: number;
       currentlyInside: number;
       checkedOutCount: number;
@@ -38,34 +38,34 @@ dashboardRouter.get('/summary', (_req, res) => {
       avgConfidence: number;
     };
 
-    const deptBreakdown = db.prepare(`
+    const deptBreakdown = await db.all(`
       SELECT
         e.department,
         COUNT(e.id) as total,
         COUNT(CASE WHEN a.status IN ('PRESENT', 'LATE', 'CHECKED_OUT') THEN 1 END) as present,
-        COUNT(CASE WHEN a.status IN ('PRESENT', 'LATE') THEN 1 END) as activeInside,
-        COUNT(CASE WHEN a.status = 'CHECKED_OUT' THEN 1 END) as checkedOut,
+        COUNT(CASE WHEN a.status IN ('PRESENT', 'LATE') THEN 1 END) as "activeInside",
+        COUNT(CASE WHEN a.status = 'CHECKED_OUT' THEN 1 END) as "checkedOut",
         COUNT(CASE WHEN a.status = 'LATE' OR a.late_minutes > 0 THEN 1 END) as late,
-        COUNT(CASE WHEN a.status = 'ON_LEAVE' THEN 1 END) as onLeave,
-        COALESCE(SUM(a.overtime_hours), 0) as overtimeHours
+        COUNT(CASE WHEN a.status = 'ON_LEAVE' THEN 1 END) as "onLeave",
+        COALESCE(SUM(a.overtime_hours), 0) as "overtimeHours"
       FROM employees e
       LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
       WHERE e.status = 'ACTIVE'
       GROUP BY e.department
       ORDER BY total DESC
-    `).all(today);
+    `, today);
 
-    const shiftBreakdown = db.prepare(`
+    const shiftBreakdown = await db.all(`
       SELECT
-        e.shift_id as shiftId,
+        e.shift_id as "shiftId",
         COUNT(e.id) as total,
         COUNT(CASE WHEN a.status IN ('PRESENT', 'LATE', 'CHECKED_OUT') THEN 1 END) as present,
-        COUNT(CASE WHEN a.status = 'ON_LEAVE' THEN 1 END) as onLeave
+        COUNT(CASE WHEN a.status = 'ON_LEAVE' THEN 1 END) as "onLeave"
       FROM employees e
       LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
       WHERE e.status = 'ACTIVE'
       GROUP BY e.shift_id
-    `).all(today) as Array<{ shiftId: string; total: number; present: number; onLeave: number }>;
+    `, today) as Array<{ shiftId: string; total: number; present: number; onLeave: number }>;
 
     const shiftsEnriched = SHIFTS.map((s) => {
       const found = shiftBreakdown.find((row) => row.shiftId === s.id);
@@ -77,13 +77,13 @@ dashboardRouter.get('/summary', (_req, res) => {
       };
     });
 
-    const recentPunches = db.prepare(`
+    const recentPunches = await db.all(`
       SELECT *
       FROM punch_events
       WHERE date = ?
       ORDER BY id DESC
       LIMIT 20
-    `).all(today);
+    `, today);
 
     const yetToCheckIn = Math.max(
       0,

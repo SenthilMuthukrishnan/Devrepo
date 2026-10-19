@@ -4,7 +4,7 @@ import { db, getTodayDateString } from '../db';
 export const leaveOvertimeRouter = Router();
 
 // List leave requests with filters
-leaveOvertimeRouter.get('/requests', (req, res) => {
+leaveOvertimeRouter.get('/requests', async (req, res) => {
   try {
     const employeeId = req.query.employeeId ? Number(req.query.employeeId) : null;
     const leaveType = String(req.query.type || '').trim();
@@ -31,7 +31,7 @@ leaveOvertimeRouter.get('/requests', (req, res) => {
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(' AND ')}` : '';
 
     const countQuery = `SELECT COUNT(*) as total FROM leave_requests lr ${whereSql}`;
-    const totalRow = db.prepare(countQuery).get(...params) as { total: number };
+    const totalRow = await db.get(countQuery, ...params) as { total: number };
 
     const rowsQuery = `
       SELECT lr.*, e.full_name, e.emp_code, e.department
@@ -41,7 +41,7 @@ leaveOvertimeRouter.get('/requests', (req, res) => {
       ORDER BY lr.created_at DESC
       LIMIT ? OFFSET ?
     `;
-    const requests = db.prepare(rowsQuery).all(...params, limit, offset);
+    const requests = await db.all(rowsQuery, ...params, limit, offset);
 
     res.json({
       total: totalRow.total,
@@ -54,7 +54,7 @@ leaveOvertimeRouter.get('/requests', (req, res) => {
 });
 
 // Create a new leave request
-leaveOvertimeRouter.post('/requests', (req, res) => {
+leaveOvertimeRouter.post('/requests', async (req, res) => {
   try {
     const {
       employee_id,
@@ -69,7 +69,7 @@ leaveOvertimeRouter.post('/requests', (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    const emp = db.prepare('SELECT id, emp_code, full_name FROM employees WHERE id = ?').get(Number(employee_id)) as any;
+    const emp = await db.get('SELECT id, emp_code, full_name FROM employees WHERE id = ?', Number(employee_id)) as any;
     if (!emp) {
       return res.status(404).json({ error: 'Employee not found' });
     }
@@ -79,22 +79,20 @@ leaveOvertimeRouter.post('/requests', (req, res) => {
       return res.status(400).json({ error: 'Invalid leave type' });
     }
 
-    const insertRes = db.prepare(`
+    const insertRes = await db.run(`
       INSERT INTO leave_requests (
         employee_id, emp_code, leave_type, start_date, end_date, days, reason, status, created_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING', ?)
-    `).run(
-      Number(employee_id),
+    `, Number(employee_id),
       emp.emp_code,
       leave_type,
       start_date,
       end_date,
       Number(days),
       reason,
-      new Date().toISOString()
-    );
+      new Date().toISOString());
 
-    const newRequest = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(Number(insertRes.lastInsertRowid));
+    const newRequest = await db.get('SELECT * FROM leave_requests WHERE id = ?', Number(insertRes.lastInsertRowid));
     res.status(201).json({ success: true, message: 'Leave request submitted', request: newRequest });
   } catch (error) {
     console.error('Error creating leave request:', error);
@@ -103,7 +101,7 @@ leaveOvertimeRouter.post('/requests', (req, res) => {
 });
 
 // Approve or reject a leave request
-leaveOvertimeRouter.put('/requests/:id', (req, res) => {
+leaveOvertimeRouter.put('/requests/:id', async (req, res) => {
   try {
     const requestId = Number(req.params.id);
     const { status } = req.body; // 'APPROVED' or 'REJECTED'
@@ -112,16 +110,16 @@ leaveOvertimeRouter.put('/requests/:id', (req, res) => {
       return res.status(400).json({ error: 'Status must be APPROVED or REJECTED' });
     }
 
-    const existing = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(requestId) as any;
+    const existing = await db.get('SELECT * FROM leave_requests WHERE id = ?', requestId) as any;
     if (!existing) {
       return res.status(404).json({ error: 'Leave request not found' });
     }
 
-    db.prepare(`
+    await db.run(`
       UPDATE leave_requests SET status = ? WHERE id = ?
-    `).run(status, requestId);
+    `, status, requestId);
 
-    const updated = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(requestId);
+    const updated = await db.get('SELECT * FROM leave_requests WHERE id = ?', requestId);
     res.json({ success: true, message: `Leave request ${status.toLowerCase()}`, request: updated });
   } catch (error) {
     console.error('Error updating leave request:', error);
@@ -130,7 +128,7 @@ leaveOvertimeRouter.put('/requests/:id', (req, res) => {
 });
 
 // Overtime ledger for all employees
-leaveOvertimeRouter.get('/overtime', (req, res) => {
+leaveOvertimeRouter.get('/overtime', async (req, res) => {
   try {
     const today = getTodayDateString();
     const dateFilter = String(req.query.date || today);
@@ -169,7 +167,7 @@ leaveOvertimeRouter.get('/overtime', (req, res) => {
       ORDER BY a.id DESC
       LIMIT ?
     `;
-    const ledger = db.prepare(query).all(...params, limit);
+    const ledger = await db.all(query, ...params, limit);
 
     res.json({
       date: dateFilter,
