@@ -422,8 +422,13 @@ employeesRouter.post('/:id/enroll-face', (req, res) => {
     const employeeId = Number(req.params.id);
     const { descriptor, snapshot } = req.body;
 
-    if (!Array.isArray(descriptor) || descriptor.length === 0) {
-      return res.status(400).json({ error: 'Valid facial biometric descriptor array is required' });
+    if (!Array.isArray(descriptor) || descriptor.length !== EMBEDDING_DIMENSIONS) {
+      return res.status(400).json({
+        error: `A ${EMBEDDING_DIMENSIONS}-dimension face descriptor is required`,
+      });
+    }
+    if (descriptor.some((v: unknown) => typeof v !== 'number' || !Number.isFinite(v))) {
+      return res.status(400).json({ error: 'Face descriptor contains invalid values' });
     }
 
     const emp = db.prepare('SELECT id, emp_code, full_name FROM employees WHERE id = ?').get(employeeId) as
@@ -438,7 +443,8 @@ employeesRouter.post('/:id/enroll-face', (req, res) => {
       UPDATE employees
       SET face_enrolled = 1,
           face_descriptor = ?,
-          face_snapshot = COALESCE(?, face_snapshot)
+          face_snapshot = COALESCE(?, face_snapshot),
+          descriptor_source = 'CAMERA'
       WHERE id = ?
     `).run(JSON.stringify(descriptor), snapshot || null, employeeId);
 
@@ -461,7 +467,8 @@ employeesRouter.delete('/:id/biometrics', (req, res) => {
       UPDATE employees
       SET face_enrolled = 0,
           face_descriptor = NULL,
-          face_snapshot = NULL
+          face_snapshot = NULL,
+          descriptor_source = NULL
       WHERE id = ?
     `).run(employeeId);
 
@@ -635,48 +642,49 @@ employeesRouter.post('/:id/restore', (req, res) => {
   }
 });
 
-// Match live camera facial descriptor against enrolled employees
+// ---------------------------------------------------------------------------
+// Face identification.
+//
+// Descriptors are 128-D face embeddings produced in the browser by
+// face-api.js (see src/utils/faceEngine.ts). Two pictures of the same person
+// sit within ~0.6 Euclidean distance; different people sit well beyond it, so
+// an unknown face simply does not match. Synthetic demo vectors ('SEEDED') and
+// vectors from the old 16/64-value grid extractor are never compared — they
+// carry no identity information, which is how a scan for one employee could
+// come back with somebody else's name.
+// ---------------------------------------------------------------------------
+const EMBEDDING_DIMENSIONS = 128;
+const MATCH_DISTANCE = 0.6; // face-api.js' recommended threshold
+const MATCH_MARGIN = 0.05; // best must beat runner-up by this much
+
+function euclideanDistance(a: number[], b: number[]): number {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) {
+    const d = a[i] - b[i];
+    sum += d * d;
+  }
+  return Math.sqrt(sum);
+}
+
 employeesRouter.post('/match-face', (req, res) => {
   try {
     const today = getTodayDateString();
-    const { descriptor, preferredEmployeeId } = req.body;
+    const { descriptor } = req.body;
 
-    if (preferredEmployeeId) {
-      const emp = db.prepare(`
-        SELECT
-          e.id, e.emp_code, e.full_name, e.department, e.designation, e.shift_id,
-          e.avatar_color, e.avatar_initials, e.face_enrolled, e.face_snapshot,
-          e.hourly_ot_rate,
-          COALESCE(a.status, 'NOT_CHECKED_IN') as today_status,
-          a.check_in_time, a.check_out_time,
-          COALESCE(a.late_minutes, 0) as late_minutes,
-          COALESCE(a.work_hours, 0) as work_hours,
-          COALESCE(a.overtime_hours, 0) as overtime_hours
-        FROM employees e
-        LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
-        WHERE e.id = ? AND e.status = 'ACTIVE'
-      `).get(today, Number(preferredEmployeeId));
-
-      if (!emp) {
-        return res.status(404).json({ error: 'Employee not found' });
-      }
-
-      return res.json({
-        matched: true,
-        confidence: Number((98.1 + Math.random() * 1.7).toFixed(1)),
-        employee: emp,
+    if (!Array.isArray(descriptor) || descriptor.length !== EMBEDDING_DIMENSIONS) {
+      return res.status(400).json({
+        error: `A ${EMBEDDING_DIMENSIONS}-dimension face descriptor is required`,
       });
     }
-
-    if (!Array.isArray(descriptor) || descriptor.length === 0) {
-      return res.status(400).json({ error: 'Facial descriptor vector required' });
+    if (descriptor.some((v: unknown) => typeof v !== 'number' || !Number.isFinite(v))) {
+      return res.status(400).json({ error: 'Face descriptor contains invalid values' });
     }
 
     const candidates = db.prepare(`
       SELECT
         e.id, e.emp_code, e.full_name, e.department, e.designation, e.shift_id,
-        e.avatar_color, e.avatar_initials, e.face_enrolled, e.face_descriptor, e.face_snapshot,
-        e.hourly_ot_rate,
+        e.avatar_color, e.avatar_initials, e.face_enrolled, e.face_descriptor,
+        e.face_snapshot, e.descriptor_source, e.hourly_ot_rate,
         COALESCE(a.status, 'NOT_CHECKED_IN') as today_status,
         a.check_in_time, a.check_out_time,
         COALESCE(a.late_minutes, 0) as late_minutes,
@@ -684,40 +692,81 @@ employeesRouter.post('/match-face', (req, res) => {
         COALESCE(a.overtime_hours, 0) as overtime_hours
       FROM employees e
       LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
-      WHERE e.face_enrolled = 1 AND e.face_descriptor IS NOT NULL AND e.status = 'ACTIVE'
+      WHERE e.status = 'ACTIVE'
+        AND e.face_enrolled = 1
+        AND e.face_descriptor IS NOT NULL
+        AND e.descriptor_source = 'CAMERA'
     `).all(today) as Array<any>;
 
-    let bestMatch: any = null;
-    let bestScore = -1;
+    if (candidates.length === 0) {
+      return res.json({
+        matched: false,
+        confidence: 0,
+        employee: null,
+        reason: 'NO_ENROLLED_FACES',
+        message:
+          'No enrolled faces on file. Enroll a face from Staff → Enroll before scanning.',
+      });
+    }
 
-    const liveEnrolled = candidates.filter((c) => Boolean(c.face_snapshot));
-    const pool = liveEnrolled.length > 0 ? liveEnrolled : candidates;
-
-    for (const candidate of pool) {
-      try {
-        const storedVec = JSON.parse(candidate.face_descriptor) as number[];
-        const score = cosineSimilarity(descriptor, storedVec);
-        if (score > bestScore) {
-          bestScore = score;
-          bestMatch = candidate;
+    const scored = candidates
+      .map((candidate) => {
+        try {
+          const stored = JSON.parse(candidate.face_descriptor) as number[];
+          if (
+            !Array.isArray(stored) ||
+            stored.length !== EMBEDDING_DIMENSIONS
+          ) {
+            return { candidate, distance: Number.POSITIVE_INFINITY, legacy: true };
+          }
+          return {
+            candidate,
+            distance: euclideanDistance(descriptor, stored),
+            legacy: false,
+          };
+        } catch {
+          return { candidate, distance: Number.POSITIVE_INFINITY, legacy: true };
         }
-      } catch {
-        // ignore
-      }
+      })
+      .sort((x, y) => x.distance - y.distance);
+
+    const usable = scored.filter((entry) => !entry.legacy);
+
+    if (usable.length === 0) {
+      return res.json({
+        matched: false,
+        confidence: 0,
+        employee: null,
+        reason: 'RE_ENROLL_REQUIRED',
+        message:
+          'The enrolled face data was captured with an older version. Re-enroll the face from Staff → Enroll to enable recognition.',
+      });
     }
 
-    if (!bestMatch) {
-      return res.json({ matched: false, confidence: 0, employee: null });
+    const best = usable[0];
+    const runnerUp = usable[1];
+    const margin = runnerUp ? runnerUp.distance - best.distance : Number.POSITIVE_INFINITY;
+
+    // Display-only score. 0 distance -> 100%, at the 0.6 threshold -> 40%.
+    // Anything below the threshold is reported as "not recognised" regardless
+    // of this number.
+    const confidence = Number(
+      Math.max(0, Math.min(99.9, (1 - best.distance) * 100)).toFixed(1)
+    );
+
+    if (best.distance > MATCH_DISTANCE || margin < MATCH_MARGIN) {
+      return res.json({
+        matched: false,
+        confidence,
+        employee: null,
+        reason: runnerUp && margin < MATCH_MARGIN ? 'AMBIGUOUS' : 'NO_CONFIDENT_MATCH',
+        message:
+          'Face not recognised. Look straight at the camera in good light and scan again, or enroll your face in Staff first.',
+      });
     }
 
-    const { face_descriptor: _unused, ...cleanEmployee } = bestMatch;
-    const confidence = Number(Math.min(99.8, Math.max(94.2, bestScore * 100)).toFixed(1));
-
-    res.json({
-      matched: true,
-      confidence,
-      employee: cleanEmployee,
-    });
+    const { face_descriptor: _unused, ...cleanEmployee } = best.candidate;
+    res.json({ matched: true, confidence, employee: cleanEmployee });
   } catch (error) {
     console.error('Error matching face:', error);
     res.status(500).json({ error: 'Face recognition matching error' });

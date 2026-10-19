@@ -6,14 +6,15 @@
   "description": "Zero-Cost Mobile & Tablet Responsive Biometric Face Recognition Attendance, Leave, Overtime, Reports & Payroll App for 15 Employees",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
-    "build": "vite build",
+    "build": "node scripts/copy-face-models.mjs && vite build",
     "preview": "vite preview --host 0.0.0.0 --port 5173",
-    "server": "tsx server/index.ts",
+    "server": "node scripts/copy-face-models.mjs && tsx server/index.ts",
     "db:list": "node scripts/db-admin.mjs list",
     "db:delete": "node scripts/db-admin.mjs delete",
     "db:keep": "node scripts/db-admin.mjs keep"
   },
   "dependencies": {
+    "@vladmandic/face-api": "^1.7.15",
     "better-sqlite3": "^12.8.0",
     "cors": "^2.8.5",
     "express": "^5.1.0",

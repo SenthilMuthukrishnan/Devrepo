@@ -31,6 +31,7 @@ import {
   playBiometricChime,
   speakAttendanceAnnouncement,
 } from '../../utils/faceBiometrics';
+import { captureVideoSnapshot, loadFaceModels, readFace } from '../../utils/faceEngine';
 import { FaceEnrollmentModal } from './FaceEnrollmentModal';
 
 interface CameraKioskModuleProps {
@@ -116,7 +117,6 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
   // Which button is currently saving ('CHECK_IN' | 'CHECK_OUT' | null)
   const [pendingPunch, setPendingPunch] = useState<PunchMode | null>(null);
 
-  const [liveConfidence, setLiveConfidence] = useState<number>(98.7);
   const [faceDetectedInFrame, setFaceDetectedInFrame] = useState(false);
   const [lastPunchResult, setLastPunchResult] = useState<PunchResponse | null>(null);
   const [punchError, setPunchError] = useState<string | null>(null);
@@ -125,7 +125,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
   const [empSearch, setEmpSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [employees, setEmployees] = useState<EmployeeRecord[]>([]);
-  const [totalMatchedEmployees, setTotalMatchedEmployees] = useState(15);
+  const [totalMatchedEmployees, setTotalMatchedEmployees] = useState(0);
   const [selectedTestEmployee, setSelectedTestEmployee] = useState<EmployeeRecord | null>(null);
   const [loadingEmployees, setLoadingEmployees] = useState(false);
 
@@ -163,13 +163,21 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
     };
   }, [facingMode]);
 
+  // Warm the on-device models as soon as the camera opens so the first scan is
+  // not stuck waiting on a 6.8 MB download.
+  useEffect(() => {
+    if (!cameraActive) return;
+    loadFaceModels().catch((error) => {
+      setPunchError(error instanceof Error ? error.message : 'Could not load face models.');
+    });
+  }, [cameraActive]);
+
   useEffect(() => {
     if (!cameraActive) return;
     const interval = setInterval(() => {
       if (videoRef.current && videoRef.current.readyState >= 2) {
         const res = analyzeVideoFrame(videoRef.current);
         setFaceDetectedInFrame(res.faceDetected);
-        setLiveConfidence(Number((97.4 + Math.random() * 2.3).toFixed(1)));
       }
     }, 900);
     return () => clearInterval(interval);
@@ -260,12 +268,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
       setTotalMatchedEmployees(empData.total);
       setRecentPunches(punchData.punches);
 
-      if (!selectedTestEmployee && empData.employees.length > 0) {
-        const readyForCheckIn =
-          empData.employees.find((e) => e.today_status === 'NOT_CHECKED_IN') ||
-          empData.employees[0];
-        setSelectedTestEmployee(readyForCheckIn);
-      } else if (selectedTestEmployee) {
+      if (selectedTestEmployee) {
         const refreshed = empData.employees.find((e) => e.id === selectedTestEmployee.id);
         if (refreshed) setSelectedTestEmployee(refreshed);
       }
@@ -302,24 +305,37 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
     setPunchError(null);
 
     try {
-      let descriptor: number[] = [];
-
-      if (cameraActive && videoRef.current) {
-        const frameAnalysis = analyzeVideoFrame(videoRef.current);
-        descriptor = frameAnalysis.descriptor;
+      const video = videoRef.current;
+      if (!cameraActive || !video || video.readyState < 2) {
+        setVerifiedEmployee(null);
+        setVerifiedConfidence(null);
+        setPunchError(
+          'Camera is not running. Allow camera access, then scan again — or use Manual Punch and pick your name.'
+        );
+        return;
       }
 
-      const target = targetEmployee ?? selectedTestEmployee;
+      // Real 128-D face embedding from the live frame. No employee is ever
+      // sent along with it, so the server cannot return a preselected person.
+      const reading = await readFace(video);
+      if (!reading) {
+        setVerifiedEmployee(null);
+        setVerifiedConfidence(null);
+        setPunchError(
+          'No face detected. Center your face in the frame, in good light, and scan again.'
+        );
+        return;
+      }
 
-      const matchRes = await matchEmployeeFace({
-        descriptor: descriptor.length > 0 ? descriptor : undefined,
-        preferredEmployeeId: target ? target.id : null,
-      });
+      const matchRes = await matchEmployeeFace({ descriptor: reading.descriptor });
 
       if (!matchRes.matched || !matchRes.employee) {
         setVerifiedEmployee(null);
         setVerifiedConfidence(null);
-        setPunchError('Face not recognised. Center your face in the frame and scan again.');
+        setPunchError(
+          matchRes.message ||
+            'Face not recognised. Center your face in the frame and scan again.'
+        );
         return;
       }
 
@@ -378,7 +394,7 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
     try {
       let snapshotUrl: string | null = null;
       if (cameraActive && videoRef.current) {
-        snapshotUrl = analyzeVideoFrame(videoRef.current).snapshotDataUrl || null;
+        snapshotUrl = captureVideoSnapshot(videoRef.current) || null;
       }
 
       const confidence =
@@ -631,16 +647,20 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                 <div className="flex items-center justify-between text-xs font-mono">
                   <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-inset/80 border border-hairline text-accent">
                     <Cpu className="w-3 h-3" />
-                    <span>MATCH: {liveConfidence}%</span>
+                    <span>
+                      {verifiedEmployee && verifiedConfidence !== null
+                        ? `MATCH: ${verifiedConfidence}%`
+                        : cameraActive
+                        ? 'READY TO SCAN'
+                        : 'CAMERA OFF'}
+                    </span>
                   </div>
                   <div className="px-2 py-0.5 rounded bg-inset/80 border border-hairline text-body">
-                    {cameraActive
-                      ? faceDetectedInFrame
-                        ? verifiedEmployee
-                          ? 'IDENTIFIED'
-                          : 'FACE LOCKED'
-                        : 'CENTER FACE'
-                      : 'SIMULATOR READY'}
+                    {verifiedEmployee
+                      ? 'IDENTIFIED'
+                      : cameraActive
+                      ? 'CAMERA ON'
+                      : 'CAMERA OFF'}
                   </div>
                 </div>
 
@@ -858,14 +878,14 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
           )}
         </div>
 
-        {/* 15-Employee Mobile Selector & Live Stream */}
+        {/* Manual employee selector & live stream */}
         <div className="@md:col-span-5 space-y-3">
           <div className="rounded-2xl border border-hairline/90 bg-panel p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <Users className="w-4 h-4 text-accent" />
                 <h3 className="text-xs font-bold text-ink">
-                  Test Any of 15 Employees
+                  Manual Punch (no face)
                 </h3>
               </div>
               <span className="text-xs font-mono text-muted">
@@ -879,14 +899,14 @@ export const CameraKioskModule: React.FC<CameraKioskModuleProps> = ({ onPunchRec
                 type="text"
                 value={empSearch}
                 onChange={(e) => handleSearchChange(e.target.value)}
-                placeholder="Search EMP0001..EMP0015 or Name..."
+                placeholder="Search by code or name..."
                 className="w-full pl-8 pr-3 py-2 text-xs rounded-xl bg-inset border border-hairline text-ink placeholder-faint focus:outline-none focus:border-emerald-500"
               />
             </div>
 
             <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
               {[
-                { id: 'ALL', label: 'All (15)' },
+                { id: 'ALL', label: `All (${totalMatchedEmployees})` },
                 { id: 'NOT_CHECKED_IN', label: 'Not In' },
                 { id: 'INSIDE', label: 'Working' },
                 { id: 'CHECKED_OUT', label: 'Out' },

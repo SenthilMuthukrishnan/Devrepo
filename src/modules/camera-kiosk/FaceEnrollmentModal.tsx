@@ -12,7 +12,8 @@ import {
 } from 'lucide-react';
 import { EmployeeRecord } from '../../types';
 import { enrollEmployeeFace, fetchEmployees } from '../../utils/api';
-import { analyzeVideoFrame, playBiometricChime } from '../../utils/faceBiometrics';
+import { playBiometricChime } from '../../utils/faceBiometrics';
+import { averageDescriptors, captureVideoSnapshot, readFace } from '../../utils/faceEngine';
 
 interface FaceEnrollmentModalProps {
   isOpen: boolean;
@@ -24,7 +25,7 @@ interface FaceEnrollmentModalProps {
 const ANGLE_STEPS = [
   { step: 1, title: 'Front Center Face', hint: 'Look straight into the mobile camera' },
   { step: 2, title: 'Slight Left Profile', hint: 'Turn head 15° left for 3D depth mapping' },
-  { step: 3, title: 'Slight Right Profile', hint: 'Turn head 15° right to complete 16-D vector' },
+  { step: 3, title: 'Slight Right Profile', hint: 'Turn head 15° right for a third capture' },
 ];
 
 export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
@@ -110,7 +111,7 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
     } catch {
       setCameraActive(false);
       setCameraError(
-        'Camera permission not active — tap "Capture Angle / Quick Enroll" to register a calibrated 16-D facial vector.'
+        'Camera permission not active. Allow camera access, then capture your face angles. Enrollment requires the camera — it cannot be faked without one.'
       );
     }
   };
@@ -123,48 +124,59 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
     setCameraActive(false);
   };
 
-  const extractSingleDescriptor = (seedOffset = 0): { descriptor: number[]; snapshot: string } => {
-    if (cameraActive && videoRef.current) {
-      const analysis = analyzeVideoFrame(videoRef.current);
-      if (analysis.descriptor.length > 0) {
-        return { descriptor: analysis.descriptor, snapshot: analysis.snapshotDataUrl };
-      }
+  /**
+   * Capture one real 128-D face embedding from the live camera.
+   * There is deliberately NO fallback that invents a vector without a camera:
+   * a synthetic vector cannot identify anyone and used to make every scan match
+   * a random employee.
+   */
+  const extractSingleDescriptor = async (): Promise<{ descriptor: number[]; snapshot: string }> => {
+    const video = videoRef.current;
+    if (!cameraActive || !video || video.readyState < 2) {
+      throw new Error('Camera is not running. Allow camera access and try again.');
     }
-    const empId = selectedEmp?.id || 1;
-    let norm = 0;
-    const raw: number[] = [];
-    for (let i = 0; i < 16; i++) {
-      const v = Math.sin((empId + seedOffset) * (i + 2) * 1.91) * 0.5 + 0.5;
-      raw.push(v);
-      norm += v * v;
+
+    const reading = await readFace(video);
+    if (!reading) {
+      throw new Error(
+        'No face detected. Center your face in the frame, remove anything covering it, and try again.'
+      );
     }
-    const mag = Math.sqrt(norm) || 1;
+
     return {
-      descriptor: raw.map((v) => Number((v / mag).toFixed(4))),
-      snapshot: '',
+      descriptor: reading.descriptor,
+      snapshot: captureVideoSnapshot(video),
     };
   };
 
   const handleStepCapture = async () => {
     if (!selectedEmp) return;
-    const { descriptor, snapshot } = extractSingleDescriptor(angleIndex);
-    const nextVectors = [...capturedVectors, descriptor];
-    setCapturedVectors(nextVectors);
+    try {
+      const { descriptor, snapshot } = await extractSingleDescriptor();
+      const nextVectors = [...capturedVectors, descriptor];
+      setCapturedVectors(nextVectors);
 
-    if (angleIndex < 2) {
-      playBiometricChime('CHECK_IN');
-      setAngleIndex(angleIndex + 1);
-      return;
+      if (angleIndex < 2) {
+        playBiometricChime('CHECK_IN');
+        setAngleIndex(angleIndex + 1);
+        return;
+      }
+
+      // Completed all 3 angles -> average the embeddings and save.
+      await finalizeEnrollment(nextVectors, snapshot);
+    } catch (err) {
+      setCameraError(err instanceof Error ? err.message : 'Face capture failed.');
     }
-
-    // Completed all 3 angles -> compute averaged normalized 16-D vector & save
-    await finalizeEnrollment(nextVectors, snapshot);
   };
 
   const handleQuickOneTapEnroll = async () => {
     if (!selectedEmp) return;
-    const { descriptor, snapshot } = extractSingleDescriptor(1);
-    await finalizeEnrollment([descriptor], snapshot);
+    try {
+      const { descriptor, snapshot } = await extractSingleDescriptor();
+      await finalizeEnrollment([descriptor], snapshot);
+    } catch (err) {
+      setCameraError(err instanceof Error ? err.message : 'Face capture failed.');
+    }
   };
 
   const finalizeEnrollment = async (vectors: number[][], snapshot: string) => {
@@ -172,20 +184,10 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
     setEnrolling(true);
     setEnrolledSuccess(null);
     try {
-      const dim = 16;
-      const avg: number[] = new Array(dim).fill(0);
-      for (const vec of vectors) {
-        for (let i = 0; i < dim; i++) {
-          avg[i] += vec[i] || 0;
-        }
+      const finalDescriptor = averageDescriptors(vectors);
+      if (finalDescriptor.length !== 128) {
+        throw new Error('Face capture failed. Please try again.');
       }
-      let norm = 0;
-      for (let i = 0; i < dim; i++) {
-        avg[i] = avg[i] / vectors.length;
-        norm += avg[i] * avg[i];
-      }
-      const mag = Math.sqrt(norm) || 1;
-      const finalDescriptor = avg.map((v) => Number((v / mag).toFixed(4)));
       setCapturedVectorPreview(finalDescriptor);
 
       const res = await enrollEmployeeFace(selectedEmp.id, finalDescriptor, snapshot || undefined);
@@ -216,7 +218,7 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
                 3-Angle Face Biometric Enrollment
               </h3>
               <p className="text-[11px] text-muted">
-                16-D Facial Landmark Vector Registration
+                128-D Face Embedding Registration (on-device)
               </p>
             </div>
           </div>
@@ -369,12 +371,12 @@ export const FaceEnrollmentModal: React.FC<FaceEnrollmentModalProps> = ({
             </div>
           </div>
 
-          {/* 16-D Vector Preview on Completion */}
+          {/* 128-D Vector Preview on Completion */}
           {capturedVectorPreview.length > 0 && (
             <div className="p-2.5 rounded-xl bg-inset border border-hairline space-y-1">
               <div className="flex items-center gap-1.5 text-xs font-mono text-accent">
                 <Cpu className="w-3.5 h-3.5" />
-                <span>16-D NORMALIZED BIOMETRIC DESCRIPTOR SAVED:</span>
+                <span>128-D FACE EMBEDDING SAVED:</span>
               </div>
               <div className="text-xs font-mono text-muted break-all">
                 [{capturedVectorPreview.slice(0, 8).join(', ')}, ...]

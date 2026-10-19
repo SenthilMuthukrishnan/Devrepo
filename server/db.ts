@@ -143,9 +143,36 @@ export function initDatabase() {
   ensureColumn('employees', 'separation_date', 'TEXT');
   ensureColumn('employees', 'separation_reason', 'TEXT');
 
+  // Where the stored face vector came from:
+  //   'CAMERA' — enrolled from a real camera frame (trustworthy for matching)
+  //   'SEEDED' — synthetic demo vector (must NOT be used for recognition)
+  ensureColumn('employees', 'descriptor_source', 'TEXT');
+
   // Login handle for each employee (e.g. "ayaan.rao"). Unique when present.
   ensureColumn('employees', 'username', 'TEXT');
   db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_username ON employees(username)');
+
+  // Classify descriptors written before this column existed. Only a real
+  // 128-D embedding can be matched against; anything else (demo seeds or the
+  // old 16/64-value brightness grid) is flagged so it is never used for
+  // identification.
+  const unclassified = db
+    .prepare(
+      `SELECT id, face_descriptor FROM employees
+        WHERE descriptor_source IS NULL AND face_descriptor IS NOT NULL`
+    )
+    .all() as Array<{ id: number; face_descriptor: string }>;
+  const classify = db.prepare('UPDATE employees SET descriptor_source = ? WHERE id = ?');
+  for (const row of unclassified) {
+    let isEmbedding = false;
+    try {
+      const parsed = JSON.parse(row.face_descriptor);
+      isEmbedding = Array.isArray(parsed) && parsed.length === 128;
+    } catch {
+      isEmbedding = false;
+    }
+    classify.run(isEmbedding ? 'CAMERA' : 'LEGACY', row.id);
+  }
 
   backfillUsernames();
 
@@ -169,7 +196,29 @@ export function initDatabase() {
     seedEmployees();
     seedMonthlyAttendanceHistory();
     // Freshly seeded rows also need a login handle.
-    backfillUsernames();
+    // Classify descriptors written before this column existed. Only a real
+  // 128-D embedding can be matched against; anything else (demo seeds or the
+  // old 16/64-value brightness grid) is flagged so it is never used for
+  // identification.
+  const unclassified = db
+    .prepare(
+      `SELECT id, face_descriptor FROM employees
+        WHERE descriptor_source IS NULL AND face_descriptor IS NOT NULL`
+    )
+    .all() as Array<{ id: number; face_descriptor: string }>;
+  const classify = db.prepare('UPDATE employees SET descriptor_source = ? WHERE id = ?');
+  for (const row of unclassified) {
+    let isEmbedding = false;
+    try {
+      const parsed = JSON.parse(row.face_descriptor);
+      isEmbedding = Array.isArray(parsed) && parsed.length === 128;
+    } catch {
+      isEmbedding = false;
+    }
+    classify.run(isEmbedding ? 'CAMERA' : 'LEGACY', row.id);
+  }
+
+  backfillUsernames();
   }
 
   if (!seededFlag) {
@@ -442,8 +491,8 @@ function seedEmployees() {
     INSERT INTO employees (
       emp_code, full_name, department, designation, shift_id,
       phone, email, base_salary, hourly_ot_rate, avatar_color,
-      avatar_initials, face_enrolled, face_descriptor, joining_date, status
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+      avatar_initials, face_enrolled, face_descriptor, descriptor_source, joining_date, status
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
   `);
 
   const insertAtt = db.prepare(`
@@ -507,6 +556,7 @@ function seedEmployees() {
           initials,
           faceEnrolled,
           descriptor,
+          descriptor ? 'SEEDED' : null,
           joiningDate
         );
 

@@ -206,13 +206,12 @@ export async function enrollEmployeeFace(
   return res.json();
 }
 
-export async function matchEmployeeFace(params: {
-  descriptor?: number[];
-  preferredEmployeeId?: number | null;
-}): Promise<{
+export async function matchEmployeeFace(params: { descriptor: number[] }): Promise<{
   matched: boolean;
   confidence: number;
   employee: EmployeeRecord | null;
+  reason?: string;
+  message?: string;
 }> {
   const res = await fetch(`${API_BASE}/api/employees/match-face`, {
     method: 'POST',

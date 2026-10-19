@@ -18,7 +18,14 @@ Zero-cost, Android Mobile & Tablet-Responsive Biometric Face Recognition Attenda
 - **Attendance is recorded only when a button is pressed** — the big **Punch In** / **Punch Out** buttons under the viewfinder, or the quick buttons on a staff card / profile. Nothing is written to the database from face detection alone, so a scan can never check someone in and immediately out.
 - `POST /api/attendance/punch` is validated server-side: duplicate punch-ins, punching out before punching in, and re-opening a completed shift return a clear `409` message surfaced as a banner/toast.
 - Buttons gate themselves on the employee's current state, so invalid actions are disabled with an explanatory tooltip before they can be attempted.
-- Works with or without a camera (select an employee from the list and press Scan Face to verify them in simulator mode).
+- Works with or without a camera: with a camera the scan identifies the person from their enrolled face; without one, pick your name under **Manual Punch (no face)** and press Punch In / Punch Out.
+
+## Face Recognition (on-device, 128-D)
+- Recognition runs **entirely in the browser** using [face-api.js](https://github.com/vladmandic/face-api) models (tiny face detector + 68 landmarks + 128-D face recognition). No photos or vectors leave the machine.
+- Model weights ship inside the `@vladmandic/face-api` npm package and are copied into `public/models` by `scripts/copy-face-models.mjs` (run automatically by `npm run build` and `npm run server`). The folder is gitignored.
+- Enrolling a face stores a 128-D embedding plus a snapshot. **Every employee must re-enroll once** after upgrading from the old brightness-grid version: those old vectors carry no identity information and are refused by the matcher (`RE_ENROLL_REQUIRED`).
+- Matching uses face-api's recommended **0.6 Euclidean-distance threshold** plus a margin over the runner-up. If nobody is within that distance the API returns `matched: false` — it never falls back to a preselected or random employee. The scan never sends a "preferred employee id"; the kiosk shows whoever the camera actually recognises.
+- Because 6.8 MB of weights load on first use, the kiosk starts downloading them as soon as the camera opens.
 
 ## Employee Offboarding (resigned / left the company)
 - Staff tab now has **Active Workforce** and **Former Staff** views.
