@@ -192,40 +192,22 @@ export function initDatabase() {
 
   const countRow = db.prepare('SELECT COUNT(*) as count FROM employees').get() as { count: number };
 
-  if (!seededFlag && countRow.count === 0) {
+  // Demo roster (Ayaan Rao, Neha Shetty, …) is OPT-IN. A fresh install starts
+  // with an empty employee list so nobody has to delete 15 fake people again.
+  // Start with `SEED_DEMO=1 npm run server` (or `npm run db:reset-demo`) to get
+  // the sample data back.
+  const demoRequested = ['1', 'true', 'yes'].includes(
+    String(process.env.SEED_DEMO || '').toLowerCase()
+  );
+
+  if (demoRequested && !seededFlag && countRow.count === 0) {
     seedEmployees();
     seedMonthlyAttendanceHistory();
-    // Freshly seeded rows also need a login handle.
-    // Classify descriptors written before this column existed. Only a real
-  // 128-D embedding can be matched against; anything else (demo seeds or the
-  // old 16/64-value brightness grid) is flagged so it is never used for
-  // identification.
-  const unclassified = db
-    .prepare(
-      `SELECT id, face_descriptor FROM employees
-        WHERE descriptor_source IS NULL AND face_descriptor IS NOT NULL`
-    )
-    .all() as Array<{ id: number; face_descriptor: string }>;
-  const classify = db.prepare('UPDATE employees SET descriptor_source = ? WHERE id = ?');
-  for (const row of unclassified) {
-    let isEmbedding = false;
-    try {
-      const parsed = JSON.parse(row.face_descriptor);
-      isEmbedding = Array.isArray(parsed) && parsed.length === 128;
-    } catch {
-      isEmbedding = false;
-    }
-    classify.run(isEmbedding ? 'CAMERA' : 'LEGACY', row.id);
-  }
-
-  backfillUsernames();
-  }
-
-  if (!seededFlag) {
     db.prepare("INSERT INTO app_meta (key, value) VALUES ('demo_seeded', ?)").run(
       new Date().toISOString()
     );
   }
+
 }
 
 /** Give every employee without a username a unique handle derived from their name. */

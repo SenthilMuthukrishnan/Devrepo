@@ -11,7 +11,10 @@
     "server": "node scripts/copy-face-models.mjs && tsx server/index.ts",
     "db:list": "node scripts/db-admin.mjs list",
     "db:delete": "node scripts/db-admin.mjs delete",
-    "db:keep": "node scripts/db-admin.mjs keep"
+    "db:keep": "node scripts/db-admin.mjs keep",
+    "db:delete-all": "node scripts/db-admin.mjs delete-all",
+    "db:offboard": "node scripts/db-admin.mjs offboard",
+    "db:reset-demo": "node scripts/db-admin.mjs reset-demo"
   },
   "dependencies": {
     "@vladmandic/face-api": "^1.7.15",

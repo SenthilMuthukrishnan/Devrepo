@@ -138,4 +138,12 @@ npm install
 npm run server   # Express + better-sqlite3 API on http://localhost:3001
 npm run dev      # Vite dev server (with /api proxy) on http://localhost:5173
 ```
-Open `http://localhost:5173` (the SQLite database `biopulse500.db` auto-initializes and seeds 15 employees plus a full month of attendance history on first run).
+Open `http://localhost:5173`. The SQLite database `data/biopulse.db` is created on first run and starts **empty** — add staff from the Staff tab.
+
+Want the 15-person demo roster (plus a month of attendance history) for a walkthrough? Seed it explicitly:
+
+```bash
+SEED_DEMO=1 npm run server
+```
+
+Demo data is only ever seeded into an empty database, once, and only when `SEED_DEMO` is set — deleting the roster never brings it back, and a fresh install no longer fills itself with fictitious employees.

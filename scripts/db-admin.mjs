@@ -10,7 +10,8 @@
  *   node scripts/db-admin.mjs delete-all --yes
  *   node scripts/db-admin.mjs keep EMP0016 --yes          # keep only Senthil
  *   node scripts/db-admin.mjs offboard EMP0012 --reason Resigned --yes
- *   node scripts/db-admin.mjs reset-demo --yes            # wipe ALL rows, reseed on next start
+ *   node scripts/db-admin.mjs reset-demo --yes            # wipe ALL rows; demo roster
+ *                                                        # returns only with SEED_DEMO=1
  *
  * Database selection: $DB_PATH, else data/biopulse.db next to the repo root.
  */
@@ -199,8 +200,8 @@ switch (command) {
 
   case 'reset-demo': {
     if (!execute) {
-      console.log(c.yellow('\nDRY RUN — this erases ALL employees and history, then the demo'));
-      console.log(c.yellow('roster is seeded again on the next server start.'));
+      console.log(c.yellow('\nDRY RUN — this erases ALL employees and history.'));
+      console.log(c.yellow('Restart with SEED_DEMO=1 npm run server to load the demo roster.'));
       console.log('Re-run with --yes to execute.\n');
       break;
     }
