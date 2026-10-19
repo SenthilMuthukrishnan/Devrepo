@@ -86,12 +86,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
     resignedCount: 0,
   });
   const [loading, setLoading] = useState(false);
-  const [serverInfo, setServerInfo] = useState<{
-    buildId: string;
-    startedAt: string;
-    dbPath: string;
-    staffCount: number;
-  } | null>(null);
+  const [serverInfo, setServerInfo] = useState<import('../../utils/api').ServerVersion | null>(null);
 
   // Face Enrollment Modal
   const [enrollTarget, setEnrollTarget] = useState<EmployeeRecord | null>(null);
@@ -663,6 +658,14 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
           <span>server {new Date(serverInfo.startedAt).toLocaleTimeString('en-IN', { hour12: false })}</span>
           <span>db {serverInfo.dbPath.replace(/^\/home\/user\//, '~/')}</span>
           <span className="text-body">{serverInfo.staffCount} staff in database</span>
+          {serverInfo.dbPersistent === false && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded border border-amber-500/40 bg-amber-500/10 text-amber-300"
+              title="This database is a SQLite file inside the server container. It is erased whenever the app is redeployed or restarted."
+            >
+              ephemeral DB — wiped on deploy
+            </span>
+          )}
         </div>
       )}
 

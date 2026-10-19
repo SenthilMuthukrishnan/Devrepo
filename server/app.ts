@@ -60,12 +60,26 @@ apiApp.get('/api/version', (_req, res) => {
   } catch {
     /* table may not exist yet */
   }
+  const usingExplicitDbPath = Boolean(process.env.DB_PATH);
+  const hostedEphemeral = Boolean(
+    process.env.RENDER ||
+      process.env.VERCEL ||
+      process.env.RAILWAY_ENVIRONMENT ||
+      process.env.FLY_APP_NAME
+  );
   res.json({
     buildId: BUILD_ID,
     startedAt: SERVER_STARTED_AT,
     dbPath: process.env.DB_PATH || path.resolve(process.cwd(), 'data', 'biopulse.db'),
     cwd: process.cwd(),
     staffCount,
+    // SQLite in a container is wiped whenever the platform rebuilds it. The UI
+    // shows a warning when the database is not on a mounted disk.
+    dbEngine: 'sqlite',
+    // A container filesystem is ephemeral unless DB_PATH points at a mounted
+    // disk. Locally the file is durable, so only warn on hosting platforms.
+    dbPersistent: usingExplicitDbPath || !hostedEphemeral,
+    hosting: process.env.RENDER ? 'render' : process.env.VERCEL ? 'vercel' : 'local',
   });
 });
 

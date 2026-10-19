@@ -14,7 +14,8 @@
     "db:keep": "node scripts/db-admin.mjs keep",
     "db:delete-all": "node scripts/db-admin.mjs delete-all",
     "db:offboard": "node scripts/db-admin.mjs offboard",
-    "db:reset-demo": "node scripts/db-admin.mjs reset-demo"
+    "db:reset-demo": "node scripts/db-admin.mjs reset-demo",
+    "start": "npm run server"
   },
   "dependencies": {
     "@vladmandic/face-api": "^1.7.15",
@@ -23,7 +24,8 @@
     "express": "^5.1.0",
     "lucide-react": "^1.16.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "tsx": "^4.20.3"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.11",
@@ -35,8 +37,10 @@
     "@vitejs/plugin-react": "^4.6.0",
     "concurrently": "^9.2.0",
     "tailwindcss": "^4.1.11",
-    "tsx": "^4.20.3",
     "typescript": "^5.8.3",
     "vite": "^7.0.4"
+  },
+  "engines": {
+    "node": ">=20 <23"
   }
 }

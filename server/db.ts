@@ -36,6 +36,19 @@ db.pragma('synchronous = FULL');
 db.pragma('foreign_keys = ON');
 console.log(`[db] using ${dbPath}`);
 
+// Render/Railway/Fly containers are rebuilt from the repo on every deploy, and
+// free instances also sleep. A SQLite file inside that container is therefore
+// erased regularly — set DB_PATH to a mounted disk, or move to Postgres.
+if (!process.env.DB_PATH && (process.env.RENDER || process.env.RAILWAY_ENVIRONMENT)) {
+  console.warn(
+    '[db] WARNING: SQLite is stored inside the container (%s).\n' +
+      '     This file is DELETED on every deploy/restart on %s.\n' +
+      '     Mount a persistent disk and set DB_PATH=/var/data/biopulse.db, or use Postgres.',
+    dbPath,
+    process.env.RENDER ? 'Render' : 'Railway'
+  );
+}
+
 export interface ShiftConfig {
   id: string;
   name: string;

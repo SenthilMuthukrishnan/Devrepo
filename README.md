@@ -132,6 +132,27 @@ The frontend is a static Vite/React build (deployed on Vercel). The backend (**E
 
 The Express service also serves the production build: when a `dist/` folder exists, `npm run build && npm run server` hosts the UI **and** the API on a single port (`http://localhost:3001`). API-only deployments without `dist/` behave exactly as before.
 
+## Deployment: where the database actually lives
+
+The API stores everything in **one SQLite file** (`data/biopulse.db` unless `DB_PATH` says otherwise). That is fine locally, but on a hosting platform it matters where that file sits:
+
+| Setup | Is data durable? |
+|---|---|
+| Local machine | Yes — a normal file on disk |
+| Render / Railway / Fly **without** a mounted disk | **No.** The container is rebuilt from the repo on every deploy, so `data/biopulse.db` is recreated empty. Free instances also sleep and restart. |
+| Render **with a disk** mounted at `/var/data` and `DB_PATH=/var/data/biopulse.db` | Yes |
+| Managed Postgres (Neon/Supabase) | Yes — but the current code does not speak Postgres yet |
+
+The Staff tab shows an **“ephemeral DB — wiped on deploy”** badge when `/api/version` reports `dbPersistent: false`, and the server logs a warning at boot on Render.
+
+Deleting employees in a preview deployment only changes that preview's container. Production runs a different container with a different file, so nothing you delete in one appears in the other.
+
+### Suggested Render settings
+- Build command: `npm install && npm run build`
+- Start command: `npm start` (runs `npm run server`)
+- Environment: `NODE_VERSION=20`, and `DB_PATH=/var/data/biopulse.db` once a disk is mounted at `/var/data`
+- Optional: `SEED_DEMO=1` only if you want the sample roster on a fresh empty database
+
 ## Quick Start (Local Development)
 ```bash
 npm install

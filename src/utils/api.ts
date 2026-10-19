@@ -17,6 +17,9 @@ export interface ServerVersion {
   dbPath: string;
   cwd: string;
   staffCount: number;
+  dbEngine?: string;
+  dbPersistent?: boolean;
+  hosting?: string;
 }
 
 /** Which backend instance is answering (used to spot stale previews). */
