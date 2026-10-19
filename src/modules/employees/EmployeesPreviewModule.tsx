@@ -137,6 +137,12 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
     setTimeout(() => setToastMsg(null), 4000);
   };
 
+  // Punch buttons mirror the kiosk rules: a punch is only possible when the
+  // employee has not already done that action today.
+  const canPunchIn = (emp: EmployeeRecord) => emp.today_status === 'NOT_CHECKED_IN';
+  const canPunchOut = (emp: EmployeeRecord) =>
+    emp.today_status === 'PRESENT' || emp.today_status === 'LATE';
+
   const loadData = async (
     s = search,
     d = department,
@@ -720,24 +726,38 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                   <div className="grid grid-cols-3 gap-1.5">
                     <button
                       type="button"
-                      disabled={punchingId === emp.id}
+                      disabled={punchingId === emp.id || !canPunchIn(emp)}
+                      title={
+                        canPunchIn(emp)
+                          ? `Punch in ${emp.full_name}`
+                          : emp.today_status === 'ON_LEAVE'
+                          ? 'On approved leave today'
+                          : `Already checked in${emp.check_in_time ? ` at ${emp.check_in_time}` : ''}`
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         handleQuickPunch(emp, 'CHECK_IN');
                       }}
-                      className="inline-flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 disabled:opacity-50 transition cursor-pointer"
+                      className="inline-flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                     >
                       <LogIn className="w-3.5 h-3.5" />
                       Punch In
                     </button>
                     <button
                       type="button"
-                      disabled={punchingId === emp.id}
+                      disabled={punchingId === emp.id || !canPunchOut(emp)}
+                      title={
+                        canPunchOut(emp)
+                          ? `Punch out ${emp.full_name}`
+                          : emp.today_status === 'CHECKED_OUT'
+                          ? `Shift completed at ${emp.check_out_time}`
+                          : 'Not checked in yet today'
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         handleQuickPunch(emp, 'CHECK_OUT');
                       }}
-                      className="inline-flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 disabled:opacity-50 transition cursor-pointer"
+                      className="inline-flex items-center justify-center gap-1 py-2 rounded-lg text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                     >
                       <LogOut className="w-3.5 h-3.5" />
                       Punch Out
@@ -1104,18 +1124,20 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                         <div className="grid grid-cols-2 gap-1.5">
                           <button
                             type="button"
-                            disabled={punchingId === detailProfile.employee.id}
+                            disabled={punchingId === detailProfile.employee.id || !canPunchIn(detailProfile.employee)}
+                            title={canPunchIn(detailProfile.employee) ? 'Punch in' : 'Already checked in today'}
                             onClick={() => handleQuickPunch(detailProfile.employee, 'CHECK_IN')}
-                            className="inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 disabled:opacity-50 transition cursor-pointer"
+                            className="inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                           >
                             <LogIn className="w-3.5 h-3.5" />
                             Punch In
                           </button>
                           <button
                             type="button"
-                            disabled={punchingId === detailProfile.employee.id}
+                            disabled={punchingId === detailProfile.employee.id || !canPunchOut(detailProfile.employee)}
+                            title={canPunchOut(detailProfile.employee) ? 'Punch out' : 'Not checked in, or already checked out'}
                             onClick={() => handleQuickPunch(detailProfile.employee, 'CHECK_OUT')}
-                            className="inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 disabled:opacity-50 transition cursor-pointer"
+                            className="inline-flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-bold bg-sky-500 hover:bg-sky-400 text-slate-950 disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
                           >
                             <LogOut className="w-3.5 h-3.5" />
                             Punch Out

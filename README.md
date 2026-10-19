@@ -10,10 +10,15 @@ Zero-cost, Android Mobile & Tablet-Responsive Biometric Face Recognition Attenda
 - **Module 4 (`src/modules/reports/ReportsPreviewModule.tsx`)**: Attendance Reports, Daily Muster Roll, Late-Arrival Audit, and Overtime Summary.
 - **Module 5 (`src/modules/payroll/PayrollPreviewModule.tsx`)**: Automated Biometric-Linked Salary & Payroll — monthly batch payroll for all 15 employees, attendance-linked proration, OT pay, LOP deductions, PF/ESI/Professional Tax, department summaries, and printable per-employee payslips.
 
-## Punch In / Punch Out
-- Explicit **Punch In** and **Punch Out** buttons on the Home camera kiosk (below the viewfinder) and on every staff card / profile in the directory (`src/modules/employees/EmployeesPreviewModule.tsx`).
-- Works with or without a camera: the punch is recorded through `POST /api/attendance/punch` with an explicit `CHECK_IN` / `CHECK_OUT` mode and is validated server-side — duplicate punch-ins, punching out before punching in, and re-opening a completed shift all return a clear `409` message that is surfaced as a toast/banner.
-- Hands-free face auto-scan remains available for the kiosk (`AUTO` mode).
+## Punch In / Punch Out (manual only — no auto mode)
+- **Face scan verifies identity only.** When an employee faces the kiosk camera the app recognises them and reads today's attendance log, then tells them which action applies:
+  - not checked in today → *"press Punch In to start the shift"* (Punch In enabled, Punch Out disabled)
+  - already checked in → *"already checked in at HH:MM — press Punch Out when you leave"* (Punch Out enabled, Punch In disabled)
+  - shift completed / on leave → no punch offered.
+- **Attendance is recorded only when a button is pressed** — the big **Punch In** / **Punch Out** buttons under the viewfinder, or the quick buttons on a staff card / profile. Nothing is written to the database from face detection alone, so a scan can never check someone in and immediately out.
+- `POST /api/attendance/punch` is validated server-side: duplicate punch-ins, punching out before punching in, and re-opening a completed shift return a clear `409` message surfaced as a banner/toast.
+- Buttons gate themselves on the employee's current state, so invalid actions are disabled with an explanatory tooltip before they can be attempted.
+- Works with or without a camera (select an employee from the list and press Scan Face to verify them in simulator mode).
 
 ## Employee Offboarding (resigned / left the company)
 - Staff tab now has **Active Workforce** and **Former Staff** views.
