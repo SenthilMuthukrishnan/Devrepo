@@ -40,7 +40,21 @@ Former staff can be **Restored** or **Deleted** permanently from the Former Staf
 
 > If the new buttons are not visible, hard-refresh the page (Ctrl/Cmd+Shift+R). `index.html` is served with `no-cache`, so a normal reload is usually enough.
 
-> Note: the SQLite file (`biopulse500.db`) is created on first run and re-seeded with 15 employees whenever it is missing. In the ephemeral preview sandbox the file is recreated after an environment restart, so a removal can appear undone — the employee comes back as a fresh seed. On a host with a persistent disk/volume (Railway, Render, Fly.io) removals persist.
+### Bulk delete ("keep only Senthil")
+1. **Staff → Active Workforce** → **Delete…** (next to *Add Staff*).
+2. Tick the employees to remove (click their cards), or **Select all on this page**.
+3. **Delete selected** → confirm. Chosen employees and all their history are erased permanently.
+
+API: `POST /api/employees/bulk-delete` with `{ "ids": [1,2] }` or
+`{ "keepIds": [16], "includeFormer": true }` (delete everyone except the kept ids).
+
+### Where the data lives
+- The SQLite database is stored at **`data/biopulse.db`** (override with `DB_PATH`, e.g. a mounted volume).
+- It uses `journal_mode=TRUNCATE` + `synchronous=FULL`, so committed rows live in the main `.db` file rather than a `-wal` sidecar that can be lost.
+- A legacy `biopulse500.db` in the repo root is migrated automatically on boot.
+- Demo data is seeded **once, ever** (`app_meta.demo_seeded`). Deleting every employee does not resurrect the demo roster on restart.
+
+> This preview sandbox keeps `data/` across server restarts, so deletions now stick. On a host with a persistent disk/volume (Railway, Render, Fly.io) set `DB_PATH` to the mounted path.
 
 ## Employee Usernames
 Every employee has a unique login handle (e.g. `ayaan.rao`), shown as `@username` on their card and profile.

@@ -16,8 +16,10 @@ import {
   RotateCcw,
   ScanFace,
   Search,
+  CheckSquare,
   ShieldAlert,
   ShieldCheck,
+  Square,
   Trash2,
   Undo2,
   UserCheck,
@@ -28,6 +30,7 @@ import {
 } from 'lucide-react';
 import { EmployeeRecord, PunchEvent } from '../../types';
 import {
+  bulkDeleteEmployees,
   createEmployee,
   fetchEmployeeProfile,
   fetchEmployees,
@@ -136,6 +139,12 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
   const [restoringId, setRestoringId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
 
+  // Multi-select bulk delete ("keep only Senthil", clear the demo roster, …)
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [bulkBusy, setBulkBusy] = useState(false);
+
   const showToast = (msg: string, kind: 'success' | 'error' = 'success') => {
     setToastKind(kind);
     setToastMsg(msg);
@@ -182,6 +191,10 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
   useEffect(() => {
     loadData(search, department, shiftFilter, enrolledFilter, page, employeeStatus);
   }, [department, shiftFilter, enrolledFilter, page, employeeStatus]);
+
+  useEffect(() => {
+    setSelectedIds([]);
+  }, [employeeStatus]);
 
   const openProfileModal = async (empId: number) => {
     setDetailEmpId(empId);
@@ -324,6 +337,35 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
     }
   };
 
+  const toggleSelected = (id: number) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  };
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds([]);
+    setBulkConfirm(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const res = await bulkDeleteEmployees({ ids: selectedIds });
+      setEmployees((prev) => prev.filter((e) => !selectedIds.includes(e.id)));
+      setTotalMatched((prev) => Math.max(0, prev - res.deleted));
+      showToast(res.message);
+      setDetailEmpId(null);
+      exitSelectMode();
+      await loadData(search, department, shiftFilter, enrolledFilter, page, employeeStatus);
+      if (onEmployeeUpdated) onEmployeeUpdated();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to delete employees', 'error');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   /** Permanent delete for records created by mistake (Former Staff tab). */
   const handleDeletePermanently = async (emp: EmployeeRecord) => {
     setDeletingId(emp.id);
@@ -400,14 +442,28 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setAddModalOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 transition cursor-pointer shrink-0"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Add Staff</span>
-          </button>
+          <div className="flex flex-col items-end gap-1.5 shrink-0">
+            <button
+              type="button"
+              onClick={() => setAddModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-md shadow-emerald-500/20 transition cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add Staff</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => (selectMode ? exitSelectMode() : setSelectMode(true))}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold border transition cursor-pointer ${
+                selectMode
+                  ? 'bg-rose-500/15 text-danger border-rose-500/40'
+                  : 'bg-control hover:bg-control-hover text-ink-soft border-hairline-strong'
+              }`}
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>{selectMode ? 'Cancel' : 'Delete…'}</span>
+            </button>
+          </div>
         </div>
 
         {employeeStatus === 'RESIGNED' && (
@@ -568,6 +624,46 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
         </div>
       </div>
 
+      {/* Bulk selection toolbar */}
+      {selectMode && (
+        <div className="rounded-2xl border border-rose-500/40 bg-rose-500/10 p-3 space-y-2">
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <span className="font-bold text-ink inline-flex items-center gap-1.5">
+              <CheckSquare className="w-4 h-4 text-danger" />
+              {selectedIds.length} selected
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() =>
+                  setSelectedIds(
+                    selectedIds.length === employees.length ? [] : employees.map((e) => e.id)
+                  )
+                }
+                className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-control hover:bg-control-hover text-ink-soft border border-hairline-strong transition cursor-pointer"
+              >
+                {selectedIds.length === employees.length && employees.length > 0
+                  ? 'Clear all'
+                  : 'Select all on this page'}
+              </button>
+              <button
+                type="button"
+                disabled={selectedIds.length === 0 || bulkBusy}
+                onClick={() => setBulkConfirm(true)}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-rose-600 hover:bg-rose-500 text-white disabled:opacity-40 disabled:cursor-not-allowed transition cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                Delete selected
+              </button>
+            </div>
+          </div>
+          <p className="text-[11px] text-muted leading-snug">
+            Tip: to keep only one employee, select everyone else and delete. Permanent delete also
+            erases their attendance, leave and payroll history.
+          </p>
+        </div>
+      )}
+
       {/* Pagination Info Strip */}
       <div className="flex items-center justify-between px-1 text-xs text-muted">
         <span>
@@ -624,9 +720,11 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
             return (
               <div
                 key={emp.id}
-                onClick={() => openProfileModal(emp.id)}
+                onClick={() => (selectMode ? toggleSelected(emp.id) : openProfileModal(emp.id))}
                 className={`rounded-2xl border p-3.5 space-y-2.5 transition cursor-pointer shadow-md ${
-                  isFormer
+                  selectMode && selectedIds.includes(emp.id)
+                    ? 'border-rose-500 ring-1 ring-rose-500/40 bg-rose-500/5'
+                    : isFormer
                     ? 'border-hairline/80 bg-panel/60 opacity-90 hover:border-hairline-strong'
                     : 'border-hairline/90 bg-panel hover:border-hairline-strong'
                 }`}
@@ -634,6 +732,20 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                 {/* Top Row: Avatar, Name, Code, Biometric Badge */}
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
+                    {selectMode && (
+                      <span
+                        className={`shrink-0 ${
+                          selectedIds.includes(emp.id) ? 'text-danger' : 'text-faint'
+                        }`}
+                        aria-hidden
+                      >
+                        {selectedIds.includes(emp.id) ? (
+                          <CheckSquare className="w-4 h-4" />
+                        ) : (
+                          <Square className="w-4 h-4" />
+                        )}
+                      </span>
+                    )}
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold text-ink shrink-0 overflow-hidden border border-white/15"
                       style={{ backgroundColor: emp.avatar_color }}
@@ -698,6 +810,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                       </span>
                       <button
                         type="button"
+                        hidden={selectMode}
                         title={`Remove ${emp.full_name} — resigned / left the company`}
                         aria-label={`Remove ${emp.full_name}`}
                         onClick={(e) => {
@@ -752,7 +865,7 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                 </div>
 
                 {/* Explicit Punch In / Punch Out row (or Restore for former staff) */}
-                {isFormer ? (
+                {selectMode ? null : isFormer ? (
                   <div className="flex items-center gap-1.5">
                     <span className="flex-1 text-[11px] text-muted truncate">
                       {emp.separation_reason || 'Resigned'}
@@ -1298,6 +1411,72 @@ export const EmployeesPreviewModule: React.FC<EmployeesModuleProps> = ({
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk delete confirmation */}
+      {bulkConfirm && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-sm p-3">
+          <div className="w-full max-w-md rounded-3xl border border-rose-500/40 bg-panel text-ink-soft shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3.5 border-b border-hairline bg-rose-500/10">
+              <div className="flex items-center gap-2">
+                <Trash2 className="w-4 h-4 text-danger" />
+                <span className="text-sm font-bold text-ink">
+                  Delete {selectedIds.length} employee{selectedIds.length === 1 ? '' : 's'}?
+                </span>
+              </div>
+              <button
+                onClick={() => setBulkConfirm(false)}
+                className="p-1.5 rounded-lg text-muted hover:text-ink hover:bg-control cursor-pointer"
+                aria-label="Cancel"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3 text-xs">
+              <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[11px] text-danger flex items-start gap-2">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <span>
+                  Permanent delete. The selected employees and all of their attendance, leave and
+                  payroll history will be erased. This cannot be undone.
+                </span>
+              </div>
+
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {employees
+                  .filter((e) => selectedIds.includes(e.id))
+                  .map((e) => (
+                    <div
+                      key={e.id}
+                      className="flex items-center justify-between p-1.5 rounded-lg bg-inset border border-hairline text-[11px]"
+                    >
+                      <span className="text-ink truncate">{e.full_name}</span>
+                      <span className="font-mono text-faint shrink-0">{e.emp_code}</span>
+                    </div>
+                  ))}
+              </div>
+
+              <div className="flex flex-col gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={bulkBusy}
+                  onClick={handleBulkDelete}
+                  className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold shadow-lg shadow-rose-500/20 disabled:opacity-50 transition cursor-pointer"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  {bulkBusy ? 'Deleting…' : `Delete ${selectedIds.length} permanently`}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkConfirm(false)}
+                  className="w-full py-2 rounded-xl bg-control hover:bg-control-hover text-ink-soft font-semibold border border-hairline-strong transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
             </div>
           </div>
         </div>

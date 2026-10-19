@@ -1,11 +1,40 @@
 import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 
-const dbPath = path.resolve(process.cwd(), 'biopulse500.db');
+/**
+ * Database location.
+ *
+ * `data/` is used instead of the repo root so the file sits in a directory that
+ * tooling does not treat as build output; set DB_PATH to point at a persistent
+ * volume in production (Railway/Render/Fly).
+ */
+const dataDir = path.resolve(process.cwd(), 'data');
+if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
+
+const dbPath = process.env.DB_PATH
+  ? path.resolve(process.env.DB_PATH)
+  : path.join(dataDir, 'biopulse.db');
+
+// One-time migration from the legacy root-level file so existing data survives.
+const legacyPath = path.resolve(process.cwd(), 'biopulse500.db');
+if (!fs.existsSync(dbPath) && fs.existsSync(legacyPath) && fs.statSync(legacyPath).size > 0) {
+  for (const suffix of ['', '-wal', '-shm']) {
+    const from = `${legacyPath}${suffix}`;
+    if (fs.existsSync(from)) fs.copyFileSync(from, `${dbPath}${suffix}`);
+  }
+  console.log(`[db] migrated legacy database to ${dbPath}`);
+}
+
 export const db = new Database(dbPath);
 
-db.pragma('journal_mode = WAL');
+// TRUNCATE (not WAL) keeps every committed transaction inside the main .db
+// file. With WAL, a kill/restart can leave data sitting in -wal/-shm sidecar
+// files that are easily lost when the workspace is snapshotted.
+db.pragma('journal_mode = TRUNCATE');
+db.pragma('synchronous = FULL');
 db.pragma('foreign_keys = ON');
+console.log(`[db] using ${dbPath}`);
 
 export interface ShiftConfig {
   id: string;
@@ -120,12 +149,33 @@ export function initDatabase() {
 
   backfillUsernames();
 
+  // Demo data is seeded exactly once, ever. Without this marker, deleting the
+  // last employee would trigger a reseed on the next boot and the demo roster
+  // would appear to "come back from the dead".
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS app_meta (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+  `);
+
+  const seededFlag = db
+    .prepare("SELECT value FROM app_meta WHERE key = 'demo_seeded'")
+    .get() as { value: string } | undefined;
+
   const countRow = db.prepare('SELECT COUNT(*) as count FROM employees').get() as { count: number };
-  if (countRow.count === 0) {
+
+  if (!seededFlag && countRow.count === 0) {
     seedEmployees();
     seedMonthlyAttendanceHistory();
     // Freshly seeded rows also need a login handle.
     backfillUsernames();
+  }
+
+  if (!seededFlag) {
+    db.prepare("INSERT INTO app_meta (key, value) VALUES ('demo_seeded', ?)").run(
+      new Date().toISOString()
+    );
   }
 }
 

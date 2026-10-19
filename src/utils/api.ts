@@ -141,6 +141,21 @@ export async function removeEmployee(
   return res.json();
 }
 
+/** Permanently delete several employees at once (rows + their history). */
+export async function bulkDeleteEmployees(payload: {
+  ids?: number[];
+  keepIds?: number[];
+  includeFormer?: boolean;
+}): Promise<{ success: boolean; deleted: number; message: string; deletedIds: number[] }> {
+  const res = await fetch(`${API_BASE}/api/employees/bulk-delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) await throwApiError(res, 'Failed to delete employees');
+  return res.json();
+}
+
 /** Undo an offboarding — bring a former employee back onto the active roster. */
 export async function restoreEmployee(
   employeeId: number

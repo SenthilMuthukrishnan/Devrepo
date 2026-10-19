@@ -545,6 +545,62 @@ employeesRouter.delete('/:id', (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Bulk permanent delete — e.g. "clear the demo roster, keep only Senthil".
+// Body: { ids: number[] } or { keepIds: number[], includeFormer?: boolean }
+// ---------------------------------------------------------------------------
+employeesRouter.post('/bulk-delete', (req, res) => {
+  try {
+    const body = req.body || {};
+    const includeFormer = body.includeFormer !== false;
+
+    let targetIds: number[] = [];
+
+    if (Array.isArray(body.ids) && body.ids.length > 0) {
+      targetIds = body.ids.map(Number).filter((n: number) => Number.isFinite(n));
+    } else {
+      const keepIds: number[] = Array.isArray(body.keepIds)
+        ? body.keepIds.map(Number).filter((n: number) => Number.isFinite(n))
+        : [];
+      const keepPlaceholders = keepIds.map(() => '?').join(', ');
+      const sql = `
+        SELECT id FROM employees
+        WHERE ${keepIds.length > 0 ? `id NOT IN (${keepPlaceholders})` : '1 = 1'}
+        ${includeFormer ? '' : "AND status = 'ACTIVE'"}
+      `;
+      targetIds = (db.prepare(sql).all(...keepIds) as Array<{ id: number }>).map((r) => r.id);
+    }
+
+    if (targetIds.length === 0) {
+      return res.status(400).json({ error: 'No employees matched — nothing to delete' });
+    }
+
+    const purge = db.transaction((ids: number[]) => {
+      const delAtt = db.prepare('DELETE FROM attendance_logs WHERE employee_id = ?');
+      const delPunch = db.prepare('DELETE FROM punch_events WHERE employee_id = ?');
+      const delLeave = db.prepare('DELETE FROM leave_requests WHERE employee_id = ?');
+      const delEmp = db.prepare('DELETE FROM employees WHERE id = ?');
+      for (const id of ids) {
+        delAtt.run(id);
+        delPunch.run(id);
+        delLeave.run(id);
+        delEmp.run(id);
+      }
+    });
+    purge(targetIds);
+
+    res.json({
+      success: true,
+      deleted: targetIds.length,
+      message: `${targetIds.length} employee${targetIds.length === 1 ? '' : 's'} permanently deleted`,
+      deletedIds: targetIds,
+    });
+  } catch (error) {
+    console.error('Error bulk deleting employees:', error);
+    res.status(500).json({ error: 'Failed to delete employees' });
+  }
+});
+
 // Re-hire / undo an accidental offboarding: bring the employee back on payroll.
 employeesRouter.post('/:id/restore', (req, res) => {
   try {
