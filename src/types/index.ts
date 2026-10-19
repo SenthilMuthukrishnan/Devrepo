@@ -89,6 +89,10 @@ export interface EmployeeRecord {
   face_enrolled: number;
   face_snapshot?: string | null;
   joining_date: string;
+  /** 'ACTIVE' for current staff, 'RESIGNED' once the employee has left. */
+  status?: 'ACTIVE' | 'RESIGNED' | string;
+  separation_date?: string | null;
+  separation_reason?: string | null;
   today_status: 'NOT_CHECKED_IN' | 'PRESENT' | 'LATE' | 'CHECKED_OUT' | 'ON_LEAVE';
   check_in_time?: string | null;
   check_out_time?: string | null;
@@ -100,6 +104,7 @@ export interface EmployeeRecord {
 
 export interface PunchResponse {
   success: boolean;
+  message?: string;
   punchType: 'CHECK_IN' | 'CHECK_OUT';
   checkInTime?: string;
   punchTime: string;

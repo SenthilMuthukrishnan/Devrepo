@@ -36,23 +36,23 @@ export const HomeModule: React.FC<{ loading?: boolean; onRefresh?: () => void }>
   return (
     <div className="space-y-4 pb-4">
       {/* Clean Live Clock & Date */}
-      <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-[#0e221f] via-[#0c1526] to-[#0a101d] p-5 shadow-xl text-center">
-        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold uppercase tracking-widest mb-3">
+      <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-panel to-panel p-5 shadow-xl text-center">
+        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-accent-soft text-xs font-bold uppercase tracking-widest mb-3">
           <ScanFace className="w-3 h-3" />
           Module 1 • Clean Home Face Scan
         </div>
-        <div className="flex items-center justify-center gap-2 text-3xl sm:text-4xl font-mono font-extrabold text-white tracking-tight">
-          <Clock className="w-8 h-8 text-emerald-400" />
+        <div className="flex items-center justify-center gap-2 text-3xl sm:text-4xl font-mono font-extrabold text-ink tracking-tight">
+          <Clock className="w-8 h-8 text-accent" />
           <span>{currentTime}</span>
         </div>
-        <p className="text-sm text-slate-300 font-medium mt-1">{currentDate}</p>
-        <p className="text-[11px] text-slate-400 mt-1">
+        <p className="text-sm text-body font-medium mt-1">{currentDate}</p>
+        <p className="text-[11px] text-muted mt-1">
           BioPulse 15 • 15 Staff Biometric Attendance
         </p>
       </div>
 
       {/* Mobile Camera Face Scanner — Auto Punch */}
-      <div className="rounded-2xl border border-slate-800/90 bg-[#0d1322] overflow-hidden shadow-xl">
+      <div className="rounded-2xl border border-hairline/90 bg-panel overflow-hidden shadow-xl">
         <div className="p-3">
           <CameraKioskModule onPunchRecorded={onRefresh} />
         </div>

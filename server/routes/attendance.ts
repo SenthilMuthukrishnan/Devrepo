@@ -42,6 +42,12 @@ attendanceRouter.post('/punch', (req, res) => {
       return res.status(404).json({ error: 'Employee not found' });
     }
 
+    if (emp.status && emp.status !== 'ACTIVE') {
+      return res.status(409).json({
+        error: `${emp.full_name} (${emp.emp_code}) is no longer an active employee — punches are disabled`,
+      });
+    }
+
     const existingLog = db.prepare(`
       SELECT *
       FROM attendance_logs
@@ -52,15 +58,42 @@ attendanceRouter.post('/punch', (req, res) => {
     const punchTime = customPunchTime || getNowTimeHHMM();
 
     // Determine effective action: CHECK_IN or CHECK_OUT
+    const hasOpenShift = Boolean(existingLog?.check_in_time && !existingLog?.check_out_time);
+    const shiftCompleted = Boolean(existingLog?.check_out_time);
+
     let action: 'CHECK_IN' | 'CHECK_OUT' = 'CHECK_IN';
     if (mode === 'CHECK_IN') {
+      if (hasOpenShift) {
+        return res.status(409).json({
+          error: `${emp.full_name} already punched in at ${existingLog.check_in_time} today`,
+        });
+      }
+      if (shiftCompleted) {
+        return res.status(409).json({
+          error: `${emp.full_name} already completed today's shift (out at ${existingLog.check_out_time})`,
+        });
+      }
       action = 'CHECK_IN';
     } else if (mode === 'CHECK_OUT') {
+      if (!existingLog?.check_in_time) {
+        return res.status(409).json({
+          error: `${emp.full_name} has not punched in yet today — punch in first`,
+        });
+      }
+      if (shiftCompleted) {
+        return res.status(409).json({
+          error: `${emp.full_name} already punched out at ${existingLog.check_out_time} today`,
+        });
+      }
       action = 'CHECK_OUT';
     } else {
-      // AUTO mode: if not checked in yet (or was ON_LEAVE / CHECKED_OUT and re-punching), decide smartly
-      if (existingLog && existingLog.check_in_time && !existingLog.check_out_time) {
+      // AUTO mode: an open shift closes, otherwise start a new shift.
+      if (hasOpenShift) {
         action = 'CHECK_OUT';
+      } else if (shiftCompleted) {
+        return res.status(409).json({
+          error: `${emp.full_name} already completed today's shift (out at ${existingLog.check_out_time})`,
+        });
       } else {
         action = 'CHECK_IN';
       }
@@ -143,6 +176,7 @@ attendanceRouter.post('/punch', (req, res) => {
 
       return res.json({
         success: true,
+        message: `${emp.full_name} punched IN at ${punchTime}`,
         punchType: 'CHECK_IN',
         punchTime,
         status,
@@ -256,6 +290,7 @@ attendanceRouter.post('/punch', (req, res) => {
 
       return res.json({
         success: true,
+        message: `${emp.full_name} punched OUT at ${punchTime} (${workHours}h worked)`,
         punchType: 'CHECK_OUT',
         checkInTime,
         punchTime,

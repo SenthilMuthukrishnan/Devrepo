@@ -10,6 +10,22 @@ Zero-cost, Android Mobile & Tablet-Responsive Biometric Face Recognition Attenda
 - **Module 4 (`src/modules/reports/ReportsPreviewModule.tsx`)**: Attendance Reports, Daily Muster Roll, Late-Arrival Audit, and Overtime Summary.
 - **Module 5 (`src/modules/payroll/PayrollPreviewModule.tsx`)**: Automated Biometric-Linked Salary & Payroll — monthly batch payroll for all 15 employees, attendance-linked proration, OT pay, LOP deductions, PF/ESI/Professional Tax, department summaries, and printable per-employee payslips.
 
+## Punch In / Punch Out
+- Explicit **Punch In** and **Punch Out** buttons on the Home camera kiosk (below the viewfinder) and on every staff card / profile in the directory (`src/modules/employees/EmployeesPreviewModule.tsx`).
+- Works with or without a camera: the punch is recorded through `POST /api/attendance/punch` with an explicit `CHECK_IN` / `CHECK_OUT` mode and is validated server-side — duplicate punch-ins, punching out before punching in, and re-opening a completed shift all return a clear `409` message that is surfaced as a toast/banner.
+- Hands-free face auto-scan remains available for the kiosk (`AUTO` mode).
+
+## Employee Offboarding (resigned / left the company)
+- Staff tab now has **Active Workforce** and **Former Staff** views.
+- Open an employee → **Employee Has Left the Company** → choose the last working day and reason (Resigned, Retired, Terminated, Contract ended, Absconded, Other).
+- Offboarding is a **soft removal** (`DELETE /api/employees/:id`): the employee is dropped from the active directory, dashboards, reports and payroll runs, face matching and punches are blocked, and biometric data is cleared — but attendance, leave and payroll history is preserved.
+- **Restore to Active Workforce** (`POST /api/employees/:id/restore`) undoes an accidental offboarding; the employee re-appears as active with face enrollment pending.
+
+## Light & Dark Mode
+- Theme toggle in the header and the desktop sidebar; the choice is saved to `localStorage` and pre-applied in `index.html` so there is no flash on reload. First visit follows the OS `prefers-color-scheme`.
+- The palette is defined once as CSS variables in `src/index.css` (`@theme` tokens + `html.light` overrides) and every component uses semantic utilities (`bg-panel`, `text-ink`, `border-hairline`, `text-accent`, …), so both themes stay in sync.
+- Camera viewfinders keep a dark HUD in both themes via the `.camera-stage` class.
+
 ## Architecture Note
 The frontend is a static Vite/React build (deployed on Vercel). The backend (**Express + SQLite via `better-sqlite3`**) runs as a **separate service** (Railway / Render / Fly.io) because Vercel serverless cannot run native SQLite binaries. The frontend calls the API via relative `/api/...` routes; locally, `vite.config.ts` proxies `/api` to the backend on port 3001.
 

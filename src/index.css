@@ -1,5 +1,132 @@
 @import "tailwindcss";
 
+/* Class-based dark mode (the <html> element carries `dark` / `light`). */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   BioPulse theme tokens
+   ---------------------------------------------------------------------------
+   Every surface/text/border utility in the app points at one of these
+   variables instead of a hard-coded slate/hex colour. Dark is the default
+   (identical to the original design); `html.light` swaps the palette. Because
+   the utilities resolve `var(--color-*)` per element, toggling the class on
+   <html> re-themes the entire app instantly with no re-render required.
+--------------------------------------------------------------------------- */
+@theme {
+  /* surfaces */
+  --color-app: #070b14;
+  --color-nav: #0a0f1c;
+  --color-panel: #0d1322;
+  --color-inset: #020617;
+  --color-elevated: #0f172a;
+  --color-control: #1e293b;
+  --color-control-hover: #334155;
+
+  /* lines */
+  --color-hairline: #1e293b;
+  --color-hairline-strong: #334155;
+
+  /* text */
+  --color-ink: #ffffff;
+  --color-ink-soft: #f1f5f9;
+  --color-body: #cbd5e1;
+  --color-muted: #94a3b8;
+  --color-faint: #64748b;
+
+  /* accents (dark-tuned) */
+  --color-accent: #34d399;
+  --color-accent-soft: #6ee7b7;
+  --color-info: #38bdf8;
+  --color-info-soft: #7dd3fc;
+  --color-warn: #fbbf24;
+  --color-warn-soft: #fcd34d;
+  --color-danger: #fb7185;
+  --color-danger-soft: #fda4af;
+  --color-violet-soft: #d8b4fe;
+  --color-indigo-soft: #a5b4fc;
+}
+
+/* Light palette ------------------------------------------------------------ */
+html.light {
+  --color-app: #eef2f7;
+  --color-nav: #ffffff;
+  --color-panel: #ffffff;
+  --color-inset: #f8fafc;
+  --color-elevated: #f1f5f9;
+  --color-control: #e2e8f0;
+  --color-control-hover: #cbd5e1;
+
+  --color-hairline: #e2e8f0;
+  --color-hairline-strong: #cbd5e1;
+
+  --color-ink: #0f172a;
+  --color-ink-soft: #1e293b;
+  --color-body: #334155;
+  --color-muted: #64748b;
+  --color-faint: #94a3b8;
+
+  /* accents darkened for AA contrast on white cards */
+  --color-accent: #059669;
+  --color-accent-soft: #047857;
+  --color-info: #0284c7;
+  --color-info-soft: #0369a1;
+  --color-warn: #b45309;
+  --color-warn-soft: #a16207;
+  --color-danger: #be123c;
+  --color-danger-soft: #9f1239;
+  --color-violet-soft: #7e22ce;
+  --color-indigo-soft: #4338ca;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+html.light {
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  background-color: var(--color-app);
+  color: var(--color-ink-soft);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* Camera viewfinders and other video overlays stay dark in both themes so the
+   HUD chrome always reads against the live video feed. */
+.camera-stage {
+  --color-app: #070b14;
+  --color-nav: #0a0f1c;
+  --color-panel: #0d1322;
+  --color-inset: #020617;
+  --color-elevated: #0f172a;
+  --color-control: #1e293b;
+  --color-control-hover: #334155;
+  --color-hairline: #1e293b;
+  --color-hairline-strong: #334155;
+  --color-ink: #ffffff;
+  --color-ink-soft: #f1f5f9;
+  --color-body: #cbd5e1;
+  --color-muted: #94a3b8;
+  --color-faint: #64748b;
+  --color-accent: #34d399;
+  --color-accent-soft: #6ee7b7;
+  --color-info: #38bdf8;
+  --color-info-soft: #7dd3fc;
+  --color-warn: #fbbf24;
+  --color-warn-soft: #fcd34d;
+  --color-danger: #fb7185;
+  --color-danger-soft: #fda4af;
+  --color-violet-soft: #d8b4fe;
+  --color-indigo-soft: #a5b4fc;
+  color-scheme: dark;
+}
+
 @keyframes scanline {
   0% {
     top: 10%;
@@ -44,12 +171,12 @@
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.5);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(71, 85, 105, 0.6);
+  background: var(--color-hairline-strong);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(16, 185, 129, 0.6);
+  background: var(--color-accent);
 }

@@ -62,24 +62,24 @@ export const ModuleRoadmapModal: React.FC<ModuleRoadmapModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-2xl rounded-2xl border border-slate-800 bg-[#0d1322] text-slate-100 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-900/70">
+      <div className="w-full max-w-2xl rounded-2xl border border-hairline bg-panel text-ink-soft shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-hairline bg-elevated/70">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-accent">
               <Layers className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-white">
+              <h3 className="text-base font-bold text-ink">
                 Modular Project Architecture (15-Employee Scale)
               </h3>
-              <p className="text-xs text-slate-400">
+              <p className="text-xs text-muted">
                 Zero-Cost Android Mobile & Tablet Responsive Build Plan (Modules 1 & 2 Complete)
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+            className="p-2 rounded-lg text-muted hover:text-ink hover:bg-control transition"
           >
             <X className="w-5 h-5" />
           </button>
@@ -95,35 +95,35 @@ export const ModuleRoadmapModal: React.FC<ModuleRoadmapModalProps> = ({
               }}
               className={`p-4 rounded-xl border transition cursor-pointer ${
                 m.status === 'COMPLETED'
-                  ? 'bg-emerald-950/20 border-emerald-500/40 hover:border-emerald-400'
-                  : 'bg-slate-900/70 border-slate-800 hover:border-slate-700'
+                  ? 'bg-emerald-500/10 border-emerald-500/40 hover:border-emerald-400'
+                  : 'bg-elevated/70 border-hairline hover:border-hairline-strong'
               }`}
             >
               <div className="flex items-center justify-between gap-2 mb-1">
                 <span
                   className={`text-[11px] font-mono font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
                     m.status === 'COMPLETED'
-                      ? 'bg-emerald-500/20 text-emerald-300'
+                      ? 'bg-emerald-500/20 text-accent-soft'
                       : m.status === 'READY'
-                      ? 'bg-sky-500/20 text-sky-300'
-                      : 'bg-slate-800 text-slate-400'
+                      ? 'bg-sky-500/20 text-info-soft'
+                      : 'bg-control text-muted'
                   }`}
                 >
                   {m.step}
                 </span>
                 {m.status === 'COMPLETED' ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <CheckCircle2 className="w-4 h-4 text-accent shrink-0" />
                 ) : (
-                  <CircleDot className="w-4 h-4 text-slate-500 shrink-0" />
+                  <CircleDot className="w-4 h-4 text-faint shrink-0" />
                 )}
               </div>
-              <div className="text-sm font-bold text-white">{m.title}</div>
-              <p className="text-xs text-slate-400 mt-1">{m.desc}</p>
+              <div className="text-sm font-bold text-ink">{m.title}</div>
+              <p className="text-xs text-muted mt-1">{m.desc}</p>
             </div>
           ))}
         </div>
 
-        <div className="px-5 py-3.5 border-t border-slate-800 bg-slate-900/70 flex items-center justify-between text-xs text-slate-400">
+        <div className="px-5 py-3.5 border-t border-hairline bg-elevated/70 flex items-center justify-between text-xs text-muted">
           <span>Stack: React + Vite + Tailwind + SQLite (Zero-Cost PWA & Capacitor Ready)</span>
           <button
             onClick={onClose}

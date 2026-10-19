@@ -140,20 +140,20 @@ export const PayrollPreviewModule: React.FC = () => {
   return (
     <div className="space-y-4 pb-8">
       {/* Module 5 Header */}
-      <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-[#0d221c] via-[#0d1322] to-[#0d1322] p-6 shadow-xl space-y-3">
-        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold uppercase tracking-wider">
+      <div className="rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 via-panel to-panel p-6 shadow-xl space-y-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-accent-soft text-xs font-bold uppercase tracking-wider">
           <Wallet className="w-3.5 h-3.5" />
           <span>Module 5 • Automated Salary & Payroll</span>
         </div>
-        <h2 className="text-xl font-extrabold text-white">Biometric-Linked Payroll Engine</h2>
-        <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+        <h2 className="text-xl font-extrabold text-ink">Biometric-Linked Payroll Engine</h2>
+        <p className="text-xs text-body max-w-2xl leading-relaxed">
           Monthly salary computation for all 15 employees linked to biometric attendance. Includes attendance-to-payroll sync, overtime pay, LOP deductions, PF/ESI/professional tax, and individual printable payslips.
         </p>
       </div>
 
       {/* Filter & Export Bar */}
-      <div className="rounded-2xl border border-slate-800/90 bg-[#0d1322] p-4 shadow-lg space-y-3">
-        <div className="flex items-center gap-2 text-xs font-bold text-emerald-300">
+      <div className="rounded-2xl border border-hairline/90 bg-panel p-4 shadow-lg space-y-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-accent-soft">
           <Filter className="w-4 h-4" />
           Payroll Filters
         </div>
@@ -162,24 +162,24 @@ export const PayrollPreviewModule: React.FC = () => {
             type="month"
             value={monthFilter}
             onChange={(e) => setMonthFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
+            className="w-full px-3 py-2 rounded-xl bg-inset border border-hairline text-ink text-xs focus:outline-none focus:border-emerald-500"
           />
           <select
             value={deptFilter}
             onChange={(e) => setDeptFilter(e.target.value)}
-            className="w-full px-2.5 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-emerald-500"
+            className="w-full px-2.5 py-2 rounded-xl bg-inset border border-hairline text-ink text-xs focus:outline-none focus:border-emerald-500"
           >
             <option value="ALL">All Departments</option>
             {departments.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
           <div className="relative">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search employee..."
-              className="w-full pl-8 pr-3 py-2 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs placeholder-slate-500 focus:outline-none focus:border-emerald-500"
+              className="w-full pl-8 pr-3 py-2 rounded-xl bg-inset border border-hairline text-ink text-xs placeholder-faint focus:outline-none focus:border-emerald-500"
             />
           </div>
         </div>
@@ -195,33 +195,33 @@ export const PayrollPreviewModule: React.FC = () => {
 
       {/* Payroll Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div className="rounded-2xl border border-emerald-500/20 bg-[#0e221c] p-4 shadow-lg space-y-1">
-          <div className="text-xs uppercase text-emerald-400 font-bold tracking-widest">Total Staff Processed</div>
-          <div className="text-2xl font-mono font-extrabold text-white">{totalEmployees}</div>
-          <div className="text-xs text-slate-400">{monthFilter || 'Current Month'} payroll run</div>
+        <div className="rounded-2xl border border-emerald-500/20 bg-panel p-4 shadow-lg space-y-1">
+          <div className="text-xs uppercase text-accent font-bold tracking-widest">Total Staff Processed</div>
+          <div className="text-2xl font-mono font-extrabold text-ink">{totalEmployees}</div>
+          <div className="text-xs text-muted">{monthFilter || 'Current Month'} payroll run</div>
         </div>
-        <div className="rounded-2xl border border-amber-500/20 bg-[#231b0e] p-4 shadow-lg space-y-1">
-          <div className="text-xs uppercase text-amber-400 font-bold tracking-widest">Total Gross Payroll</div>
-          <div className="text-2xl font-mono font-extrabold text-white">₹{(totalPayrollAmount / 100000).toFixed(2)}L</div>
-          <div className="text-xs text-slate-400">Before statutory deductions</div>
+        <div className="rounded-2xl border border-amber-500/20 bg-panel p-4 shadow-lg space-y-1">
+          <div className="text-xs uppercase text-warn font-bold tracking-widest">Total Gross Payroll</div>
+          <div className="text-2xl font-mono font-extrabold text-ink">₹{(totalPayrollAmount / 100000).toFixed(2)}L</div>
+          <div className="text-xs text-muted">Before statutory deductions</div>
         </div>
-        <div className="rounded-2xl border border-sky-500/20 bg-[#0e1e2e] p-4 shadow-lg space-y-1">
-          <div className="text-xs uppercase text-sky-400 font-bold tracking-widest">Total Net Payroll</div>
-          <div className="text-2xl font-mono font-extrabold text-white">
+        <div className="rounded-2xl border border-sky-500/20 bg-panel p-4 shadow-lg space-y-1">
+          <div className="text-xs uppercase text-info font-bold tracking-widest">Total Net Payroll</div>
+          <div className="text-2xl font-mono font-extrabold text-ink">
             ₹{monthlySummary ? (monthlySummary.total_net_payroll / 100000).toFixed(2) : '0.00'}L
           </div>
-          <div className="text-xs text-slate-400">After PF, ESI, Tax, LOP deductions</div>
+          <div className="text-xs text-muted">After PF, ESI, Tax, LOP deductions</div>
         </div>
       </div>
 
       {/* Department Summary */}
-      <div className="rounded-2xl border border-slate-800/90 bg-[#0d1322] p-4 shadow-lg space-y-2">
-        <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-amber-400" /> Department Payroll Summary
+      <div className="rounded-2xl border border-hairline/90 bg-panel p-4 shadow-lg space-y-2">
+        <h3 className="text-sm font-extrabold text-ink flex items-center gap-2">
+          <TrendingUp className="w-4 h-4 text-warn" /> Department Payroll Summary
         </h3>
-        <div className="rounded-xl border border-slate-800/60 overflow-hidden">
+        <div className="rounded-xl border border-hairline/60 overflow-hidden">
           <table className="w-full text-xs text-left">
-            <thead className="bg-slate-900/80 text-[11px] uppercase text-slate-400 font-bold tracking-wider">
+            <thead className="bg-elevated/80 text-[11px] uppercase text-muted font-bold tracking-wider">
               <tr>
                 <th className="px-2 py-2">Department</th>
                 <th className="px-2 py-2">Staff</th>
@@ -232,15 +232,15 @@ export const PayrollPreviewModule: React.FC = () => {
             </thead>
             <tbody>
               {!monthlySummary ? (
-                <tr><td colSpan={5} className="py-3 text-center text-slate-500">Loading department summary...</td></tr>
+                <tr><td colSpan={5} className="py-3 text-center text-faint">Loading department summary...</td></tr>
               ) : (
                 Object.entries(monthlySummary.department_summary || {}).map(([dept, data]: [string, any]) => (
-                  <tr key={dept} className="border-t border-slate-800/40 hover:bg-slate-800/20 transition">
-                    <td className="px-2 py-1.5 text-white font-medium">{dept}</td>
-                    <td className="px-2 py-1.5 font-mono text-slate-300">{data.staff}</td>
-                    <td className="px-2 py-1.5 font-mono text-amber-400">₹{(data.gross_payroll / 100000).toFixed(2)}L</td>
-                    <td className="px-2 py-1.5 font-mono text-emerald-400">₹{(data.net_payroll / 100000).toFixed(2)}L</td>
-                    <td className="px-2 py-1.5 font-mono text-sky-300">₹{data.total_overtime_pay?.toLocaleString('en-IN') || '0'}</td>
+                  <tr key={dept} className="border-t border-hairline/40 hover:bg-control/20 transition">
+                    <td className="px-2 py-1.5 text-ink font-medium">{dept}</td>
+                    <td className="px-2 py-1.5 font-mono text-body">{data.staff}</td>
+                    <td className="px-2 py-1.5 font-mono text-warn">₹{(data.gross_payroll / 100000).toFixed(2)}L</td>
+                    <td className="px-2 py-1.5 font-mono text-accent">₹{(data.net_payroll / 100000).toFixed(2)}L</td>
+                    <td className="px-2 py-1.5 font-mono text-info-soft">₹{data.total_overtime_pay?.toLocaleString('en-IN') || '0'}</td>
                   </tr>
                 ))
               )}
@@ -250,19 +250,19 @@ export const PayrollPreviewModule: React.FC = () => {
       </div>
 
       {/* Batch Payroll Table */}
-      <div className="rounded-2xl border border-slate-800/90 bg-[#0d1322] p-4 shadow-lg space-y-3">
+      <div className="rounded-2xl border border-hairline/90 bg-panel p-4 shadow-lg space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-emerald-400" />
+          <h3 className="text-sm font-extrabold text-ink flex items-center gap-2">
+            <Receipt className="w-4 h-4 text-accent" />
             Monthly Payroll — All 15 Employees
           </h3>
-          <span className="text-xs font-mono text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+          <span className="text-xs font-mono text-accent-soft bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
             {totalEmployees} staff
           </span>
         </div>
-        <div className="rounded-xl overflow-hidden border border-slate-800/60">
+        <div className="rounded-xl overflow-hidden border border-hairline/60">
           <table className="w-full text-xs text-left">
-            <thead className="bg-slate-900/80 text-[11px] uppercase text-slate-400 font-bold tracking-wider">
+            <thead className="bg-elevated/80 text-[11px] uppercase text-muted font-bold tracking-wider">
               <tr>
                 <th className="px-2 py-2">Employee</th>
                 <th className="px-2 py-2">Basic</th>
@@ -279,33 +279,33 @@ export const PayrollPreviewModule: React.FC = () => {
             </thead>
             <tbody>
               {loadingPayroll ? (
-                <tr><td colSpan={11} className="py-4 text-center text-slate-500">Computing payroll...</td></tr>
+                <tr><td colSpan={11} className="py-4 text-center text-faint">Computing payroll...</td></tr>
               ) : payrollResults.length === 0 ? (
-                <tr><td colSpan={11} className="py-4 text-center text-slate-500">No payroll data for selected month</td></tr>
+                <tr><td colSpan={11} className="py-4 text-center text-faint">No payroll data for selected month</td></tr>
               ) : (
                 payrollResults.map((r) => {
                   return (
                     <tr
                       key={r.employee.emp_code}
-                      className="border-t border-slate-800/40 hover:bg-slate-800/20 transition cursor-pointer"
+                      className="border-t border-hairline/40 hover:bg-control/20 transition cursor-pointer"
                       onClick={() => handleShowPayslip(r.employee.id)}
                     >
-                      <td className="px-2 py-1.5 text-white font-medium truncate">
-                        {r.employee.full_name} <span className="text-[11px] text-slate-500">({r.employee.emp_code})</span>
+                      <td className="px-2 py-1.5 text-ink font-medium truncate">
+                        {r.employee.full_name} <span className="text-[11px] text-faint">({r.employee.emp_code})</span>
                       </td>
-                      <td className="px-2 py-1.5 font-mono text-slate-300">₹{r.earnings.basic_pay?.toLocaleString('en-IN')}</td>
-                      <td className="px-2 py-1.5 font-mono text-slate-300">₹{r.earnings.hra?.toLocaleString('en-IN')}</td>
-                      <td className="px-2 py-1.5 font-mono text-slate-300">₹{r.earnings.special_allowance?.toLocaleString('en-IN')}</td>
-                      <td className="px-2 py-1.5 font-mono text-amber-400">₹{r.earnings.overtime_pay?.toLocaleString('en-IN')}</td>
-                      <td className="px-2 py-1.5 font-mono text-white font-bold">₹{r.earnings.gross_earnings?.toLocaleString('en-IN')}</td>
-                      <td className="px-2 py-1.5 font-mono text-rose-400">-₹{r.deductions.total_deductions?.toLocaleString('en-IN')}</td>
-                      <td className="px-2 py-1.5 font-mono text-emerald-400 font-extrabold">₹{r.net_salary?.toLocaleString('en-IN')}</td>
-                      <td className="px-2 py-1.5 font-mono text-emerald-300">{r.attendance.present_days}</td>
-                      <td className="px-2 py-1.5 font-mono text-amber-300">{r.attendance.overtime_hours}h</td>
+                      <td className="px-2 py-1.5 font-mono text-body">₹{r.earnings.basic_pay?.toLocaleString('en-IN')}</td>
+                      <td className="px-2 py-1.5 font-mono text-body">₹{r.earnings.hra?.toLocaleString('en-IN')}</td>
+                      <td className="px-2 py-1.5 font-mono text-body">₹{r.earnings.special_allowance?.toLocaleString('en-IN')}</td>
+                      <td className="px-2 py-1.5 font-mono text-warn">₹{r.earnings.overtime_pay?.toLocaleString('en-IN')}</td>
+                      <td className="px-2 py-1.5 font-mono text-ink font-bold">₹{r.earnings.gross_earnings?.toLocaleString('en-IN')}</td>
+                      <td className="px-2 py-1.5 font-mono text-danger">-₹{r.deductions.total_deductions?.toLocaleString('en-IN')}</td>
+                      <td className="px-2 py-1.5 font-mono text-accent font-extrabold">₹{r.net_salary?.toLocaleString('en-IN')}</td>
+                      <td className="px-2 py-1.5 font-mono text-accent-soft">{r.attendance.present_days}</td>
+                      <td className="px-2 py-1.5 font-mono text-warn-soft">{r.attendance.overtime_hours}h</td>
                       <td className="px-2 py-1.5">
                         <button
                           onClick={(e) => { e.stopPropagation(); handleShowPayslip(r.employee.id); }}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-[11px] font-bold border border-indigo-500/20 transition cursor-pointer"
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-soft text-[11px] font-bold border border-indigo-500/20 transition cursor-pointer"
                         >
                           <ChevronDown className="w-3 h-3" />
                           Payslip
@@ -321,43 +321,43 @@ export const PayrollPreviewModule: React.FC = () => {
 
         {/* Expanded Payslip Card */}
         {expandedEmployee && payslipData && (
-          <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-r from-[#0d221c] to-[#0d1322] p-4 space-y-2 shadow-lg mt-3">
+          <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/10 to-panel p-4 space-y-2 shadow-lg mt-3">
             <div className="flex items-center justify-between">
-              <h4 className="text-sm font-extrabold text-emerald-300">Payslip — {payslipData.employee?.full_name}</h4>
-              <span className="text-xs font-mono text-emerald-400">{monthFilter || 'Current'}</span>
+              <h4 className="text-sm font-extrabold text-accent-soft">Payslip — {payslipData.employee?.full_name}</h4>
+              <span className="text-xs font-mono text-accent">{monthFilter || 'Current'}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
-              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-                <div className="text-[11px] uppercase text-slate-500 font-bold">Employee Details</div>
-                <div className="text-white font-semibold">{payslipData.employee?.emp_code} — {payslipData.employee?.designation}</div>
-                <div className="text-slate-400">{payslipData.employee?.department}</div>
+              <div className="p-2.5 rounded-xl bg-inset/60 border border-hairline/60">
+                <div className="text-[11px] uppercase text-faint font-bold">Employee Details</div>
+                <div className="text-ink font-semibold">{payslipData.employee?.emp_code} — {payslipData.employee?.designation}</div>
+                <div className="text-muted">{payslipData.employee?.department}</div>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-                <div className="text-[11px] uppercase text-slate-500 font-bold">Earnings</div>
-                <div className="grid grid-cols-2 gap-1 text-xs text-slate-300">
-                  <span>Basic:</span><span className="text-white font-mono">₹{payslipData.earnings?.basic_pay?.toLocaleString('en-IN')}</span>
-                  <span>HRA:</span><span className="text-white font-mono">₹{payslipData.earnings?.hra?.toLocaleString('en-IN')}</span>
-                  <span>Special:</span><span className="text-white font-mono">₹{payslipData.earnings?.special_allowance?.toLocaleString('en-IN')}</span>
-                  <span>Overtime:</span><span className="text-amber-400 font-mono">₹{payslipData.earnings?.overtime_pay?.toLocaleString('en-IN')}</span>
-                  <span>Gross:</span><span className="text-emerald-400 font-mono font-bold">₹{payslipData.earnings?.gross_earnings?.toLocaleString('en-IN')}</span>
+              <div className="p-2.5 rounded-xl bg-inset/60 border border-hairline/60">
+                <div className="text-[11px] uppercase text-faint font-bold">Earnings</div>
+                <div className="grid grid-cols-2 gap-1 text-xs text-body">
+                  <span>Basic:</span><span className="text-ink font-mono">₹{payslipData.earnings?.basic_pay?.toLocaleString('en-IN')}</span>
+                  <span>HRA:</span><span className="text-ink font-mono">₹{payslipData.earnings?.hra?.toLocaleString('en-IN')}</span>
+                  <span>Special:</span><span className="text-ink font-mono">₹{payslipData.earnings?.special_allowance?.toLocaleString('en-IN')}</span>
+                  <span>Overtime:</span><span className="text-warn font-mono">₹{payslipData.earnings?.overtime_pay?.toLocaleString('en-IN')}</span>
+                  <span>Gross:</span><span className="text-accent font-mono font-bold">₹{payslipData.earnings?.gross_earnings?.toLocaleString('en-IN')}</span>
                 </div>
               </div>
-              <div className="p-2.5 rounded-xl bg-slate-950/60 border border-slate-800/60">
-                <div className="text-[11px] uppercase text-slate-500 font-bold">Deductions</div>
-                <div className="grid grid-cols-2 gap-1 text-xs text-slate-300">
-                  <span>PF (12%):</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.pf?.toLocaleString('en-IN')}</span>
-                  <span>ESI (1.75%):</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.esi?.toLocaleString('en-IN')}</span>
-                  <span>Prof Tax:</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.professional_tax?.toLocaleString('en-IN')}</span>
-                  <span>LOP:</span><span className="text-rose-400 font-mono">-₹{payslipData.deductions?.lop_deduction?.toLocaleString('en-IN')}</span>
-                  <span>Total Deduct:</span><span className="text-rose-400 font-mono font-bold">-₹{payslipData.deductions?.total_deductions?.toLocaleString('en-IN')}</span>
+              <div className="p-2.5 rounded-xl bg-inset/60 border border-hairline/60">
+                <div className="text-[11px] uppercase text-faint font-bold">Deductions</div>
+                <div className="grid grid-cols-2 gap-1 text-xs text-body">
+                  <span>PF (12%):</span><span className="text-danger font-mono">-₹{payslipData.deductions?.pf?.toLocaleString('en-IN')}</span>
+                  <span>ESI (1.75%):</span><span className="text-danger font-mono">-₹{payslipData.deductions?.esi?.toLocaleString('en-IN')}</span>
+                  <span>Prof Tax:</span><span className="text-danger font-mono">-₹{payslipData.deductions?.professional_tax?.toLocaleString('en-IN')}</span>
+                  <span>LOP:</span><span className="text-danger font-mono">-₹{payslipData.deductions?.lop_deduction?.toLocaleString('en-IN')}</span>
+                  <span>Total Deduct:</span><span className="text-danger font-mono font-bold">-₹{payslipData.deductions?.total_deductions?.toLocaleString('en-IN')}</span>
                 </div>
               </div>
             </div>
             <div className="flex items-center justify-between pt-2 border-t border-emerald-500/10">
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-muted">
                 Present: {payslipData.attendance?.present_days} days • Leave: {payslipData.attendance?.leave_days} • OT: {payslipData.attendance?.overtime_hours}h • Late: {payslipData.attendance?.late_minutes} min
               </div>
-              <div className="text-xl font-mono font-extrabold text-emerald-400">
+              <div className="text-xl font-mono font-extrabold text-accent">
                 Net Pay: ₹{payslipData.net_salary?.toLocaleString('en-IN')}
               </div>
             </div>

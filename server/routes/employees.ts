@@ -32,11 +32,21 @@ employeesRouter.get('/', (req, res) => {
     const shiftId = String(req.query.shift || '').trim();
     const statusFilter = String(req.query.todayStatus || '').trim();
     const enrolledFilter = String(req.query.faceEnrolled || '').trim(); // 'ALL' | 'ENROLLED' | 'PENDING'
+    // 'ACTIVE' (default) | 'RESIGNED' (people who have left) | 'ALL'
+    const employeeStatus = String(req.query.status || 'ACTIVE').trim().toUpperCase();
     const limit = Math.min(Number(req.query.limit || 50), 500);
     const offset = Number(req.query.offset || 0);
 
-    const whereClauses = ["e.status = 'ACTIVE'"];
+    const whereClauses: string[] = [];
     const params: Array<string | number> = [today];
+
+    if (employeeStatus === 'ALL') {
+      // include both current and former staff
+    } else if (employeeStatus === 'RESIGNED' || employeeStatus === 'INACTIVE') {
+      whereClauses.push("e.status != 'ACTIVE'");
+    } else {
+      whereClauses.push("e.status = 'ACTIVE'");
+    }
 
     if (search) {
       whereClauses.push(
@@ -83,15 +93,20 @@ employeesRouter.get('/', (req, res) => {
     `;
     const totalRow = db.prepare(countQuery).get(...params) as { total: number };
 
-    // Global biometric stats across all active employees
+    // Global biometric stats across all active employees + offboarding count
     const statsRow = db.prepare(`
       SELECT
-        COUNT(*) as totalActive,
-        SUM(CASE WHEN face_enrolled = 1 THEN 1 ELSE 0 END) as enrolledCount,
-        SUM(CASE WHEN face_enrolled = 0 THEN 1 ELSE 0 END) as pendingCount
+        COUNT(CASE WHEN status = 'ACTIVE' THEN 1 END) as totalActive,
+        SUM(CASE WHEN status = 'ACTIVE' AND face_enrolled = 1 THEN 1 ELSE 0 END) as enrolledCount,
+        SUM(CASE WHEN status = 'ACTIVE' AND face_enrolled = 0 THEN 1 ELSE 0 END) as pendingCount,
+        COUNT(CASE WHEN status != 'ACTIVE' THEN 1 END) as resignedCount
       FROM employees
-      WHERE status = 'ACTIVE'
-    `).get() as { totalActive: number; enrolledCount: number; pendingCount: number };
+    `).get() as {
+      totalActive: number;
+      enrolledCount: number;
+      pendingCount: number;
+      resignedCount: number;
+    };
 
     const rowsQuery = `
       SELECT
@@ -111,6 +126,8 @@ employeesRouter.get('/', (req, res) => {
         e.face_snapshot,
         e.joining_date,
         e.status,
+        e.separation_date,
+        e.separation_reason,
         COALESCE(a.status, 'NOT_CHECKED_IN') as today_status,
         a.check_in_time,
         a.check_out_time,
@@ -133,6 +150,7 @@ employeesRouter.get('/', (req, res) => {
         totalActive: statsRow.totalActive || 0,
         enrolledCount: statsRow.enrolledCount || 0,
         pendingCount: statsRow.pendingCount || 0,
+        resignedCount: statsRow.resignedCount || 0,
       },
       employees,
     });
@@ -402,6 +420,87 @@ employeesRouter.delete('/:id/biometrics', (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Offboarding: an employee resigns / leaves the company.
+// Soft-deactivate instead of hard-deleting so attendance, leave and payroll
+// history remains intact for statutory records. Biometrics are wiped so the
+// person can no longer punch in from the kiosk.
+// ---------------------------------------------------------------------------
+employeesRouter.delete('/:id', (req, res) => {
+  try {
+    const employeeId = Number(req.params.id);
+    const { separation_date, separation_reason, reason } = req.body || {};
+
+    const emp = db.prepare('SELECT id, emp_code, full_name, status FROM employees WHERE id = ?').get(employeeId) as
+      | { id: number; emp_code: string; full_name: string; status: string }
+      | undefined;
+
+    if (!emp) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    if (emp.status !== 'ACTIVE') {
+      return res.status(409).json({ error: `${emp.full_name} has already left the company` });
+    }
+
+    const leftOn = separation_date || getTodayDateString();
+    const leftReason = String(separation_reason || reason || 'Resigned').trim() || 'Resigned';
+
+    db.prepare(`
+      UPDATE employees
+      SET status = 'RESIGNED',
+          separation_date = ?,
+          separation_reason = ?,
+          face_enrolled = 0,
+          face_descriptor = NULL,
+          face_snapshot = NULL
+      WHERE id = ?
+    `).run(leftOn, leftReason, employeeId);
+
+    res.json({
+      success: true,
+      message: `${emp.full_name} (${emp.emp_code}) removed from the active workforce — ${leftReason} on ${leftOn}`,
+      employee: db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId),
+    });
+  } catch (error) {
+    console.error('Error offboarding employee:', error);
+    res.status(500).json({ error: 'Failed to remove employee' });
+  }
+});
+
+// Re-hire / undo an accidental offboarding: bring the employee back on payroll.
+employeesRouter.post('/:id/restore', (req, res) => {
+  try {
+    const employeeId = Number(req.params.id);
+    const emp = db.prepare('SELECT id, emp_code, full_name, status FROM employees WHERE id = ?').get(employeeId) as
+      | { id: number; emp_code: string; full_name: string; status: string }
+      | undefined;
+
+    if (!emp) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    if (emp.status === 'ACTIVE') {
+      return res.status(409).json({ error: `${emp.full_name} is already an active employee` });
+    }
+
+    db.prepare(`
+      UPDATE employees
+      SET status = 'ACTIVE',
+          separation_date = NULL,
+          separation_reason = NULL
+      WHERE id = ?
+    `).run(employeeId);
+
+    res.json({
+      success: true,
+      message: `${emp.full_name} (${emp.emp_code}) restored to the active workforce`,
+      employee: db.prepare('SELECT * FROM employees WHERE id = ?').get(employeeId),
+    });
+  } catch (error) {
+    console.error('Error restoring employee:', error);
+    res.status(500).json({ error: 'Failed to restore employee' });
+  }
+});
+
 // Match live camera facial descriptor against enrolled employees
 employeesRouter.post('/match-face', (req, res) => {
   try {
@@ -421,7 +520,7 @@ employeesRouter.post('/match-face', (req, res) => {
           COALESCE(a.overtime_hours, 0) as overtime_hours
         FROM employees e
         LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
-        WHERE e.id = ?
+        WHERE e.id = ? AND e.status = 'ACTIVE'
       `).get(today, Number(preferredEmployeeId));
 
       if (!emp) {
@@ -451,7 +550,7 @@ employeesRouter.post('/match-face', (req, res) => {
         COALESCE(a.overtime_hours, 0) as overtime_hours
       FROM employees e
       LEFT JOIN attendance_logs a ON e.id = a.employee_id AND a.date = ?
-      WHERE e.face_enrolled = 1 AND e.face_descriptor IS NOT NULL
+      WHERE e.face_enrolled = 1 AND e.face_descriptor IS NOT NULL AND e.status = 'ACTIVE'
     `).all(today) as Array<any>;
 
     let bestMatch: any = null;

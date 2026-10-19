@@ -23,6 +23,15 @@ export const SHIFTS: ShiftConfig[] = [
   { id: 'NIGHT', name: 'Night Shift (C)', startTime: '22:00', endTime: '06:00', graceMinutes: 15, standardHours: 8 },
 ];
 
+// Lightweight forward-only migration helper: older databases on disk may
+// predate a column, so add it in place instead of requiring a reset.
+function ensureColumn(table: string, column: string, definition: string) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (!columns.some((c) => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+}
+
 export function initDatabase() {
   db.exec(`
     CREATE TABLE IF NOT EXISTS employees (
@@ -99,6 +108,11 @@ export function initDatabase() {
       FOREIGN KEY (employee_id) REFERENCES employees(id)
     );
   `);
+
+  // Offboarding metadata (resignation / termination). `status` already exists:
+  // 'ACTIVE' for current staff, 'RESIGNED' once someone has left the company.
+  ensureColumn('employees', 'separation_date', 'TEXT');
+  ensureColumn('employees', 'separation_reason', 'TEXT');
 
   const countRow = db.prepare('SELECT COUNT(*) as count FROM employees').get() as { count: number };
   if (countRow.count === 0) {

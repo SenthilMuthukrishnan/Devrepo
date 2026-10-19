@@ -23,11 +23,17 @@ export async function fetchEmployees(params: {
   shift?: string;
   todayStatus?: string;
   faceEnrolled?: string;
+  status?: 'ACTIVE' | 'RESIGNED' | 'ALL';
   limit?: number;
   offset?: number;
 }): Promise<{
   total: number;
-  stats?: { totalActive: number; enrolledCount: number; pendingCount: number };
+  stats?: {
+    totalActive: number;
+    enrolledCount: number;
+    pendingCount: number;
+    resignedCount: number;
+  };
   employees: EmployeeRecord[];
 }> {
   const qs = new URLSearchParams();
@@ -36,6 +42,7 @@ export async function fetchEmployees(params: {
   if (params.shift) qs.set('shift', params.shift);
   if (params.todayStatus) qs.set('todayStatus', params.todayStatus);
   if (params.faceEnrolled) qs.set('faceEnrolled', params.faceEnrolled);
+  if (params.status) qs.set('status', params.status);
   if (params.limit !== undefined) qs.set('limit', String(params.limit));
   if (params.offset !== undefined) qs.set('offset', String(params.offset));
 
@@ -81,7 +88,7 @@ export async function createEmployee(payload: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error('Failed to create employee');
+  if (!res.ok) await throwApiError(res, 'Failed to create employee');
   return res.json();
 }
 
@@ -103,7 +110,36 @@ export async function updateEmployee(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
   });
-  if (!res.ok) throw new Error('Failed to update employee');
+  if (!res.ok) await throwApiError(res, 'Failed to update employee');
+  return res.json();
+}
+
+/**
+ * Offboard an employee who has resigned / left the company. This is a soft
+ * removal: attendance, leave and payroll history is retained, biometrics are
+ * wiped and the person drops out of the active directory and camera matching.
+ */
+export async function removeEmployee(
+  employeeId: number,
+  payload: { separation_date?: string; separation_reason?: string } = {}
+): Promise<{ success: boolean; message: string; employee: EmployeeRecord }> {
+  const res = await fetch(`${API_BASE}/api/employees/${employeeId}`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) await throwApiError(res, 'Failed to remove employee');
+  return res.json();
+}
+
+/** Undo an offboarding — bring a former employee back onto the active roster. */
+export async function restoreEmployee(
+  employeeId: number
+): Promise<{ success: boolean; message: string; employee: EmployeeRecord }> {
+  const res = await fetch(`${API_BASE}/api/employees/${employeeId}/restore`, {
+    method: 'POST',
+  });
+  if (!res.ok) await throwApiError(res, 'Failed to restore employee');
   return res.json();
 }
 
@@ -148,6 +184,17 @@ export async function matchEmployeeFace(params: {
   return res.json();
 }
 
+async function throwApiError(res: Response, fallback: string): Promise<never> {
+  let message = fallback;
+  try {
+    const body = await res.json();
+    if (body?.error) message = String(body.error);
+  } catch {
+    /* non-JSON error body */
+  }
+  throw new Error(message);
+}
+
 export async function recordBiometricPunch(params: {
   employeeId: number;
   mode?: 'AUTO' | 'CHECK_IN' | 'CHECK_OUT';
@@ -162,7 +209,7 @@ export async function recordBiometricPunch(params: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(params),
   });
-  if (!res.ok) throw new Error('Failed to record attendance punch');
+  if (!res.ok) await throwApiError(res, 'Failed to record attendance punch');
   return res.json();
 }
 
