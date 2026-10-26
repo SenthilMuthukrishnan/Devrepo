@@ -16,7 +16,8 @@
     "db:offboard": "node scripts/db-admin.mjs offboard",
     "db:reset-demo": "node scripts/db-admin.mjs reset-demo",
     "start": "npm run server",
-    "test:api": "node scripts/smoke-test.mjs"
+    "test:api": "node scripts/smoke-test.mjs",
+    "test:door": "node scripts/test-access.mjs"
   },
   "dependencies": {
     "@vladmandic/face-api": "^1.7.15",

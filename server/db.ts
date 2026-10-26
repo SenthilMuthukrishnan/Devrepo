@@ -101,6 +101,21 @@ const SQLITE_SCHEMA = `
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS door_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    door_id TEXT NOT NULL,
+    employee_id INTEGER,
+    emp_code TEXT,
+    full_name TEXT,
+    decision TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    confidence REAL,
+    source_ip TEXT,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_door_events_created ON door_events(door_id, created_at);
 `;
 
 // Same shape, Postgres types. Flags stay INTEGER (0/1) and JSON blobs stay TEXT
@@ -188,6 +203,22 @@ const PG_SCHEMA = `
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS door_events (
+    id SERIAL PRIMARY KEY,
+    door_id TEXT NOT NULL,
+    employee_id INTEGER,
+    emp_code TEXT,
+    full_name TEXT,
+    decision TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    confidence DOUBLE PRECISION,
+    source_ip TEXT,
+    created_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_door_events_created ON door_events(door_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_door_events_employee ON door_events(employee_id, created_at);
 
   CREATE UNIQUE INDEX IF NOT EXISTS idx_employees_username ON employees(username);
   CREATE INDEX IF NOT EXISTS idx_attendance_date ON attendance_logs(date);

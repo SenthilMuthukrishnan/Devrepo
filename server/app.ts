@@ -9,6 +9,7 @@ import { attendanceRouter } from './routes/attendance';
 import { leaveOvertimeRouter } from './routes/leave-overtime';
 import { reportsRouter } from './routes/reports';
 import { payrollRouter } from './routes/payroll';
+import { accessRouter } from './routes/access';
 
 export const apiApp = express();
 
@@ -28,6 +29,7 @@ apiApp.use('/api/attendance', attendanceRouter);
 apiApp.use('/api/leave-overtime', leaveOvertimeRouter);
 apiApp.use('/api/reports', reportsRouter);
 apiApp.use('/api/payroll', payrollRouter);
+apiApp.use('/api/access', accessRouter);
 
 apiApp.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', scale: '15-employees', timestamp: new Date().toISOString() });

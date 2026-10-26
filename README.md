@@ -132,6 +132,33 @@ The frontend is a static Vite/React build (deployed on Vercel). The backend (**E
 
 The Express service also serves the production build: when a `dist/` folder exists, `npm run build && npm run server` hosts the UI **and** the API on a single port (`http://localhost:3001`). API-only deployments without `dist/` behave exactly as before.
 
+## Door Lock Integration
+
+Face verification can open a physical door — but the decision is made by the
+server, never by the browser, and the relay lives on a controller at the door.
+
+```bash
+ACCESS_DEVICE_TOKENS="main-door:<secret>"   # unset ⇒ access API returns 503 (fail closed)
+```
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/access/verify` | Face → `{granted, employee, unlock_ms}` |
+| `POST /api/access/open` | Request-to-exit (REX) / remote release |
+| `GET /api/access/events` | Audit trail of every grant and denial |
+| `GET /api/access/health` | Liveness probe for the controller |
+
+Denials use HTTP 200 with `granted: false` so a controller never retries a
+refusal as a network error. Built-in rules: active employees only, approved
+leave blocked, anti-passback cooldown per employee+door.
+
+**Wiring, safety rules (fail-safe locks, fire code, REX), bill of materials and
+controller firmware: [docs/door-lock.md](docs/door-lock.md).**
+
+```bash
+npm run test:door -- http://localhost:3001   # 14 checks: auth, deny, grant, cooldown, audit
+```
+
 ## Database engines: Postgres in production, SQLite locally
 
 The data layer picks its engine from the environment — no code changes:
